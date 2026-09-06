@@ -1,0 +1,10 @@
+{
+    "java.compile.nullAnalysis.mode": "disabled",
+    "cSpell.words": [
+        "aryadeep",
+        "aryadeepvarshney",
+        "projectlombok",
+        "springframework"
+    ],
+    "java.configuration.updateBuildConfiguration": "automatic"
+}
