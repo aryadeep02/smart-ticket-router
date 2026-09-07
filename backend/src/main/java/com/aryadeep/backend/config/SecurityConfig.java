@@ -85,6 +85,10 @@ public class SecurityConfig {
                                 HttpMethod.POST,
                                 "/api/v1/tickets"
                         ).hasAnyRole("CUSTOMER", "ADMIN")
+                        .requestMatchers(
+                                HttpMethod.PATCH,
+                                "/api/v1/tickets/*/assign"
+                        ).hasRole("ADMIN")
 
                         .requestMatchers(
                                 HttpMethod.PATCH,

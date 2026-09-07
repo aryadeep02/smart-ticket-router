@@ -10,13 +10,18 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.aryadeep.backend.dto.AssignAgentRequest;
 import com.aryadeep.backend.dto.CreateTicketRequest;
 import com.aryadeep.backend.dto.TicketHistoryResponse;
 import com.aryadeep.backend.dto.TicketResponse;
 import com.aryadeep.backend.dto.UpdateTicketStatusRequest;
+import com.aryadeep.backend.entity.TicketCategory;
+import com.aryadeep.backend.entity.TicketPriority;
+import com.aryadeep.backend.entity.TicketStatus;
 import com.aryadeep.backend.service.TicketHistoryService;
 import com.aryadeep.backend.service.TicketService;
 
@@ -48,6 +53,32 @@ public class TicketController {
                 authentication.getName());
     }
 
+    @GetMapping
+    public List<TicketResponse> getTickets(
+            @RequestParam(required = false) TicketStatus status,
+            @RequestParam(required = false) TicketPriority priority,
+            @RequestParam(required = false) TicketCategory category,
+            @RequestParam(required = false) Boolean slaBreached,
+            Authentication authentication) {
+    
+        return ticketService.getTickets(
+                status,
+                priority,
+                category,
+                slaBreached,
+                authentication.getName());
+    }
+
+    @GetMapping("/{id}")
+    public TicketResponse getTicket(
+            @PathVariable Long id,
+            Authentication authentication) {
+
+        return ticketService.getTicket(
+                id,
+                authentication.getName());
+    }
+
     @PatchMapping("/{id}/status")
     public TicketResponse updateStatus(
             @PathVariable Long id,
@@ -55,6 +86,18 @@ public class TicketController {
             Authentication authentication) {
 
         return ticketService.updateStatus(
+                id,
+                request,
+                authentication.getName());
+    }
+
+    @PatchMapping("/{id}/assign")
+    public TicketResponse assignAgent(
+            @PathVariable Long id,
+            @Valid @RequestBody AssignAgentRequest request,
+            Authentication authentication) {
+
+        return ticketService.assignAgent(
                 id,
                 request,
                 authentication.getName());

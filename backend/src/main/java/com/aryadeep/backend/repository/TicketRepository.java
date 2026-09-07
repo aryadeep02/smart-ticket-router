@@ -1,8 +1,19 @@
 package com.aryadeep.backend.repository;
 
-import org.springframework.data.jpa.repository.JpaRepository;
-
 import com.aryadeep.backend.entity.Ticket;
+import com.aryadeep.backend.entity.TicketStatus;
 
-public interface TicketRepository extends JpaRepository<Ticket, Long> {
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+public interface TicketRepository
+        extends JpaRepository<Ticket, Long>,
+                JpaSpecificationExecutor<Ticket> {
+
+    List<Ticket> findBySlaBreachedFalseAndStatusNotInAndSlaDeadlineBefore(
+            List<TicketStatus> excludedStatuses,
+            LocalDateTime deadline);
 }

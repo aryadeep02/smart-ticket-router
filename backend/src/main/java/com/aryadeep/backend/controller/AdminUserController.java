@@ -30,11 +30,12 @@ public class AdminUserController {
             @Valid @RequestBody CreateUserRequest request) {
 
         User user = userService.createUserWithRole(
-                request.name(),
-                request.email(),
-                request.password(),
-                request.role()
-        );
+            request.name(),
+            request.email(),
+            request.password(),
+            request.role(),
+            request.supportTeamId()
+    );
 
         return new RegisterResponse(
                 user.getId(),

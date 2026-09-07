@@ -21,6 +21,8 @@ public record CreateUserRequest(
         String password,
 
         @NotNull(message = "Role is required")
-        Role role
+        Role role,
+
+        Long supportTeamId
 ) {
 }

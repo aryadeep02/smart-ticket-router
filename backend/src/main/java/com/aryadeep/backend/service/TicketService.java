@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
 
 import com.aryadeep.backend.dto.AIClassificationResponse;
+import com.aryadeep.backend.dto.AssignAgentRequest;
 import com.aryadeep.backend.dto.CreateTicketRequest;
 import com.aryadeep.backend.dto.TicketResponse;
 import com.aryadeep.backend.dto.UpdateTicketStatusRequest;
@@ -18,6 +19,9 @@ import com.aryadeep.backend.repository.SupportTeamRepository;
 import com.aryadeep.backend.repository.TicketRepository;
 import com.aryadeep.backend.repository.UserRepository;
 
+import com.aryadeep.backend.specification.TicketSpecification;
+import java.util.List;
+
 @Service
 public class TicketService {
 
@@ -28,6 +32,7 @@ public class TicketService {
         private final SupportTeamRepository supportTeamRepository;
         private final AIClassificationService aiClassificationService;
         private final TicketWorkflowService ticketWorkflowService;
+        private final TicketAccessService ticketAccessService;
 
         public TicketService(
                         TicketRepository ticketRepository,
@@ -35,7 +40,8 @@ public class TicketService {
                         SupportTeamRepository supportTeamRepository,
                         AIClassificationService aiClassificationService,
                         TicketWorkflowService ticketWorkflowService,
-                        TicketHistoryService ticketHistoryService) {
+                        TicketHistoryService ticketHistoryService,
+                        TicketAccessService ticketAccessService) {
 
                 this.ticketRepository = ticketRepository;
                 this.userRepository = userRepository;
@@ -43,6 +49,7 @@ public class TicketService {
                 this.aiClassificationService = aiClassificationService;
                 this.ticketWorkflowService = ticketWorkflowService;
                 this.ticketHistoryService = ticketHistoryService;
+                this.ticketAccessService = ticketAccessService;
         }
 
         public TicketResponse createTicket(
@@ -121,53 +128,148 @@ public class TicketService {
         }
 
         public TicketResponse updateStatus(
-                Long ticketId,
-                UpdateTicketStatusRequest request,
+                        Long ticketId,
+                        UpdateTicketStatusRequest request,
+                        String userEmail) {
+
+                Ticket ticket = ticketRepository.findById(ticketId)
+                                .orElseThrow(() -> new RuntimeException("Ticket not found"));
+
+                User user = userRepository.findByEmail(userEmail)
+                                .orElseThrow(() -> new RuntimeException("User not found"));
+
+                if (!ticketAccessService.canAccess(ticket, user)) {
+                        throw new org.springframework.security.access.AccessDeniedException(
+                                        "You do not have permission to update this ticket");
+                }
+
+                TicketStatus currentStatus = ticket.getStatus();
+                TicketStatus newStatus = request.status();
+
+                if (!ticketWorkflowService.isValidTransition(
+                                currentStatus,
+                                newStatus)) {
+
+                        throw new IllegalStateException(
+                                        "Invalid ticket status transition: "
+                                                        + currentStatus
+                                                        + " -> "
+                                                        + newStatus);
+                }
+
+                ticket.setStatus(newStatus);
+
+                if (newStatus == TicketStatus.RESOLVED) {
+                        ticket.setResolvedAt(LocalDateTime.now());
+                }
+
+                Ticket updatedTicket = ticketRepository.save(ticket);
+
+                ticketHistoryService.record(
+                                updatedTicket,
+                                user,
+                                "STATUS_CHANGED",
+                                currentStatus.name(),
+                                newStatus.name());
+
+                return toResponse(updatedTicket);
+        }
+
+        public TicketResponse getTicket(
+                        Long ticketId,
+                        String userEmail) {
+
+                Ticket ticket = ticketRepository.findById(ticketId)
+                                .orElseThrow(() -> new RuntimeException("Ticket not found"));
+
+                User user = userRepository.findByEmail(userEmail)
+                                .orElseThrow(() -> new RuntimeException("User not found"));
+
+                if (!ticketAccessService.canAccess(ticket, user)) {
+                        throw new org.springframework.security.access.AccessDeniedException(
+                                        "You do not have access to this ticket");
+                }
+
+                return toResponse(ticket);
+        }
+
+        public TicketResponse assignAgent(
+                        Long ticketId,
+                        AssignAgentRequest request,
+                        String adminEmail) {
+
+                Ticket ticket = ticketRepository.findById(ticketId)
+                                .orElseThrow(() -> new RuntimeException("Ticket not found"));
+
+                User admin = userRepository.findByEmail(adminEmail)
+                                .orElseThrow(() -> new RuntimeException("User not found"));
+
+                User agent = userRepository.findById(request.agentId())
+                                .orElseThrow(() -> new RuntimeException("Agent not found"));
+
+                if (agent.getRole() != com.aryadeep.backend.entity.Role.AGENT) {
+                        throw new IllegalStateException(
+                                        "Selected user is not an AGENT");
+                }
+
+                if (agent.getSupportTeam() == null) {
+                        throw new IllegalStateException(
+                                        "Agent is not assigned to a support team");
+                }
+
+                if (ticket.getSupportTeam() == null) {
+                        throw new IllegalStateException(
+                                        "Ticket is not assigned to a support team");
+                }
+
+                if (!ticket.getSupportTeam().getId()
+                                .equals(agent.getSupportTeam().getId())) {
+
+                        throw new IllegalStateException(
+                                        "Agent does not belong to the ticket's support team");
+                }
+
+                ticket.setAssignedAgent(agent);
+
+                Ticket updatedTicket = ticketRepository.save(ticket);
+
+                ticketHistoryService.record(
+                                updatedTicket,
+                                admin,
+                                "AGENT_ASSIGNED",
+                                null,
+                                agent.getId().toString());
+
+                return toResponse(updatedTicket);
+        }
+
+        public List<TicketResponse> getTickets(
+                TicketStatus status,
+                TicketPriority priority,
+                TicketCategory category,
+                Boolean slaBreached,
                 String userEmail) {
         
-            Ticket ticket = ticketRepository.findById(ticketId)
-                    .orElseThrow(() ->
-                            new RuntimeException("Ticket not found"));
-        
-            User changedBy = userRepository.findByEmail(userEmail)
+            User user = userRepository.findByEmail(userEmail)
                     .orElseThrow(() ->
                             new RuntimeException("User not found"));
         
-            TicketStatus currentStatus = ticket.getStatus();
-            TicketStatus newStatus = request.status();
+            var specification =
+                    TicketSpecification.hasStatus(status)
+                            .and(TicketSpecification.hasPriority(priority))
+                            .and(TicketSpecification.hasCategory(category))
+                            .and(TicketSpecification.hasSlaBreached(slaBreached));
         
-            if (!ticketWorkflowService.isValidTransition(
-                    currentStatus,
-                    newStatus)) {
-        
-                throw new IllegalStateException(
-                        "Invalid ticket status transition: "
-                                + currentStatus
-                                + " -> "
-                                + newStatus
-                );
-            }
-        
-            ticket.setStatus(newStatus);
-        
-            if (newStatus == TicketStatus.RESOLVED) {
-                ticket.setResolvedAt(LocalDateTime.now());
-            }
-        
-            Ticket updatedTicket =
-                    ticketRepository.save(ticket);
-        
-            ticketHistoryService.record(
-                    updatedTicket,
-                    changedBy,
-                    "STATUS_CHANGED",
-                    currentStatus.name(),
-                    newStatus.name()
-            );
-        
-            return toResponse(updatedTicket);
+            return ticketRepository
+                    .findAll(specification)
+                    .stream()
+                    .filter(ticket ->
+                            ticketAccessService.canAccess(ticket, user))
+                    .map(this::toResponse)
+                    .toList();
         }
 
+        
         private LocalDateTime calculateSlaDeadline(
                         TicketPriority priority) {
 

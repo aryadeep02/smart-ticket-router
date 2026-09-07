@@ -8,19 +8,27 @@ import com.aryadeep.backend.entity.Role;
 import com.aryadeep.backend.entity.User;
 import com.aryadeep.backend.exception.EmailAlreadyExistsException;
 import com.aryadeep.backend.exception.InvalidCredentialsException;
+import com.aryadeep.backend.repository.SupportTeamRepository;
 import com.aryadeep.backend.repository.UserRepository;
+import com.aryadeep.backend.entity.SupportTeam;
+
+
 @Service
 public class UserService {
 
     private final UserRepository userRepository;
+    private final SupportTeamRepository supportTeamRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
-    public UserService(UserRepository userRepository,
-                       PasswordEncoder passwordEncoder,
-                       JwtService jwtService) {
+    public UserService(
+            UserRepository userRepository,
+            SupportTeamRepository supportTeamRepository,
+            PasswordEncoder passwordEncoder,
+            JwtService jwtService) {
 
         this.userRepository = userRepository;
+        this.supportTeamRepository = supportTeamRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
     }
@@ -40,33 +48,49 @@ public class UserService {
 
         return userRepository.save(user);
     }
+
     public User createUserWithRole(
-        String name,
-        String email,
-        String password,
-        Role role) {
+            String name,
+            String email,
+            String password,
+            Role role,
+            Long supportTeamId) {
 
-    if (userRepository.existsByEmail(email)) {
-        throw new EmailAlreadyExistsException(
-                "Email already registered"
-        );
+        if (userRepository.existsByEmail(email)) {
+            throw new EmailAlreadyExistsException(
+                    "Email already registered");
+        }
+
+        SupportTeam supportTeam = null;
+
+        if (role == Role.AGENT) {
+
+            if (supportTeamId == null) {
+                throw new IllegalStateException(
+                        "Support team is required for an AGENT");
+            }
+
+            supportTeam = supportTeamRepository
+                    .findById(supportTeamId)
+                    .orElseThrow(() -> new RuntimeException(
+                            "Support team not found"));
+        }
+
+        User user = User.builder()
+                .name(name)
+                .email(email)
+                .password(passwordEncoder.encode(password))
+                .role(role)
+                .supportTeam(supportTeam)
+                .build();
+
+        return userRepository.save(user);
     }
-
-    User user = User.builder()
-            .name(name)
-            .email(email)
-            .password(passwordEncoder.encode(password))
-            .role(role)
-            .build();
-
-    return userRepository.save(user);
-}
 
     public LoginResponse loginUser(String email, String password) {
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() ->
-                        new InvalidCredentialsException("Invalid email or password"));
+                .orElseThrow(() -> new InvalidCredentialsException("Invalid email or password"));
 
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new InvalidCredentialsException("Invalid email or password");
@@ -79,7 +103,6 @@ public class UserService {
                 user.getId(),
                 user.getName(),
                 user.getEmail(),
-                user.getRole().name()
-        );
+                user.getRole().name());
     }
 }
