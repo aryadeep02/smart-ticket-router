@@ -66,7 +66,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             String email = claims.getSubject();
 
-            User user = userRepository.findByEmail(email).orElse(null);
+            User user = userRepository
+                    .findByEmail(email)
+                    .orElse(null);
 
             if (user != null) {
 
@@ -90,7 +92,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         } catch (Exception exception) {
             // Invalid or expired JWT.
             // Leave the request unauthenticated.
-
         }
 
         filterChain.doFilter(request, response);

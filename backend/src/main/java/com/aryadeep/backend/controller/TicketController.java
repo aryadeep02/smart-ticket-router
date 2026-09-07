@@ -3,6 +3,7 @@ package com.aryadeep.backend.controller;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.aryadeep.backend.dto.AdminDashboardResponse;
 import com.aryadeep.backend.dto.AssignAgentRequest;
 import com.aryadeep.backend.dto.CreateTicketRequest;
 import com.aryadeep.backend.dto.TicketHistoryResponse;
@@ -43,6 +45,7 @@ public class TicketController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
     @ResponseStatus(HttpStatus.CREATED)
     public TicketResponse createTicket(
             @Valid @RequestBody CreateTicketRequest request,
@@ -60,7 +63,7 @@ public class TicketController {
             @RequestParam(required = false) TicketCategory category,
             @RequestParam(required = false) Boolean slaBreached,
             Authentication authentication) {
-    
+
         return ticketService.getTickets(
                 status,
                 priority,
@@ -80,6 +83,7 @@ public class TicketController {
     }
 
     @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('AGENT', 'ADMIN')")
     public TicketResponse updateStatus(
             @PathVariable Long id,
             @Valid @RequestBody UpdateTicketStatusRequest request,
@@ -92,6 +96,7 @@ public class TicketController {
     }
 
     @PatchMapping("/{id}/assign")
+    @PreAuthorize("hasRole('ADMIN')")
     public TicketResponse assignAgent(
             @PathVariable Long id,
             @Valid @RequestBody AssignAgentRequest request,
@@ -108,5 +113,12 @@ public class TicketController {
             @PathVariable Long id) {
 
         return ticketHistoryService.getTicketHistory(id);
+    }
+
+    @GetMapping("/admin/summary")
+    @PreAuthorize("hasRole('ADMIN')")
+    public AdminDashboardResponse getAdminDashboard() {
+
+        return ticketService.getAdminDashboard();
     }
 }

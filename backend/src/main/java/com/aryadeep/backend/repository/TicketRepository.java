@@ -1,6 +1,7 @@
 package com.aryadeep.backend.repository;
 
 import com.aryadeep.backend.entity.Ticket;
+import com.aryadeep.backend.entity.TicketPriority;
 import com.aryadeep.backend.entity.TicketStatus;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,4 +17,12 @@ public interface TicketRepository
     List<Ticket> findBySlaBreachedFalseAndStatusNotInAndSlaDeadlineBefore(
             List<TicketStatus> excludedStatuses,
             LocalDateTime deadline);
+
+    long countByStatus(TicketStatus status);
+
+    long countBySlaBreachedTrue();
+
+    long countByAssignedAgentIsNull();
+
+    long countByPriority(TicketPriority priority);
 }

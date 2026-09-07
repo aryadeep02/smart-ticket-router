@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
 
 import com.aryadeep.backend.dto.AIClassificationResponse;
+import com.aryadeep.backend.dto.AdminDashboardResponse;
 import com.aryadeep.backend.dto.AssignAgentRequest;
 import com.aryadeep.backend.dto.CreateTicketRequest;
 import com.aryadeep.backend.dto.TicketResponse;
@@ -244,31 +245,38 @@ public class TicketService {
         }
 
         public List<TicketResponse> getTickets(
-                TicketStatus status,
-                TicketPriority priority,
-                TicketCategory category,
-                Boolean slaBreached,
-                String userEmail) {
-        
-            User user = userRepository.findByEmail(userEmail)
-                    .orElseThrow(() ->
-                            new RuntimeException("User not found"));
-        
-            var specification =
-                    TicketSpecification.hasStatus(status)
-                            .and(TicketSpecification.hasPriority(priority))
-                            .and(TicketSpecification.hasCategory(category))
-                            .and(TicketSpecification.hasSlaBreached(slaBreached));
-        
-            return ticketRepository
-                    .findAll(specification)
-                    .stream()
-                    .filter(ticket ->
-                            ticketAccessService.canAccess(ticket, user))
-                    .map(this::toResponse)
-                    .toList();
+                        TicketStatus status,
+                        TicketPriority priority,
+                        TicketCategory category,
+                        Boolean slaBreached,
+                        String userEmail) {
+
+                User user = userRepository.findByEmail(userEmail)
+                                .orElseThrow(() -> new RuntimeException("User not found"));
+
+                var specification = TicketSpecification.hasStatus(status)
+                                .and(TicketSpecification.hasPriority(priority))
+                                .and(TicketSpecification.hasCategory(category))
+                                .and(TicketSpecification.hasSlaBreached(slaBreached));
+
+                return ticketRepository
+                                .findAll(specification)
+                                .stream()
+                                .filter(ticket -> ticketAccessService.canAccess(ticket, user))
+                                .map(this::toResponse)
+                                .toList();
         }
 
+        public AdminDashboardResponse getAdminDashboard() {
+                return new AdminDashboardResponse(
+                                ticketRepository.count(),
+                                ticketRepository.countByStatus(TicketStatus.OPEN),
+                                ticketRepository.countByStatus(TicketStatus.IN_PROGRESS),
+                                ticketRepository.countByStatus(TicketStatus.RESOLVED),
+                                ticketRepository.countBySlaBreachedTrue(),
+                                ticketRepository.countByAssignedAgentIsNull(),
+                                ticketRepository.countByPriority(TicketPriority.CRITICAL));
+        }
 
         private LocalDateTime calculateSlaDeadline(
                         TicketPriority priority) {
