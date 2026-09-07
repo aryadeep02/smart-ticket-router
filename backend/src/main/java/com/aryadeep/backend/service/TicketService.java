@@ -75,7 +75,7 @@ public class TicketService {
                 Double aiConfidence;
                 String aiClassificationStatus;
 
-                if (aiResponse == null || aiResponse.confidence() < 0.70) {
+                if (aiResponse == null || aiResponse.confidence() < 0.55) {
 
                         category = TicketCategory.OTHER;
                         priority = TicketPriority.MEDIUM;
@@ -269,7 +269,7 @@ public class TicketService {
                     .toList();
         }
 
-        
+
         private LocalDateTime calculateSlaDeadline(
                         TicketPriority priority) {
 

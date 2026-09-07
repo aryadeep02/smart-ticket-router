@@ -16,98 +16,90 @@ import jakarta.servlet.http.HttpServletResponse;
 @Configuration
 public class SecurityConfig {
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(
-            HttpSecurity http,
-            JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
+        @Bean
+        public SecurityFilterChain securityFilterChain(
+                        HttpSecurity http,
+                        JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
 
-        AuthenticationEntryPoint authenticationEntryPoint =
-                (request, response, authException) -> {
+                AuthenticationEntryPoint authenticationEntryPoint = (request, response, authException) -> {
 
-                    response.setStatus(
-                            HttpServletResponse.SC_UNAUTHORIZED
-                    );
+                        response.setStatus(
+                                        HttpServletResponse.SC_UNAUTHORIZED);
 
-                    response.setContentType("application/json");
+                        response.setContentType("application/json");
 
-                    response.getWriter().write(
-                            "{\"message\":\"Unauthorized\"}"
-                    );
+                        response.getWriter().write(
+                                        "{\"message\":\"Unauthorized\"}");
                 };
 
-        AccessDeniedHandler accessDeniedHandler =
-                (request, response, accessDeniedException) -> {
+                AccessDeniedHandler accessDeniedHandler = (request, response, accessDeniedException) -> {
 
-                    response.setStatus(
-                            HttpServletResponse.SC_FORBIDDEN
-                    );
+                        response.setStatus(
+                                        HttpServletResponse.SC_FORBIDDEN);
 
-                    response.setContentType("application/json");
+                        response.setContentType("application/json");
 
-                    response.getWriter().write(
-                            "{\"message\":\"Forbidden\"}"
-                    );
+                        response.getWriter().write(
+                                        "{\"message\":\"Forbidden\"}");
                 };
 
-        http
-                .csrf(AbstractHttpConfigurer::disable)
+                http
+                                .csrf(AbstractHttpConfigurer::disable)
 
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(
-                                SessionCreationPolicy.STATELESS
-                        )
-                )
+                                .sessionManagement(session -> session.sessionCreationPolicy(
+                                                SessionCreationPolicy.STATELESS))
 
-                .exceptionHandling(exception ->
-                        exception
-                                .authenticationEntryPoint(
-                                        authenticationEntryPoint
-                                )
-                                .accessDeniedHandler(
-                                        accessDeniedHandler
-                                )
-                )
+                                .exceptionHandling(exception -> exception
+                                                .authenticationEntryPoint(
+                                                                authenticationEntryPoint)
+                                                .accessDeniedHandler(
+                                                                accessDeniedHandler))
 
-                .authorizeHttpRequests(auth -> auth
+                                .authorizeHttpRequests(auth -> auth
 
-                        .requestMatchers(
-                                "/api/v1/health",
-                                "/api/v1/auth/register",
-                                "/api/v1/auth/login"
-                        ).permitAll()
+                                                .requestMatchers(
+                                                                "/api/v1/health",
+                                                                "/api/v1/auth/register",
+                                                                "/api/v1/auth/login")
+                                                .permitAll()
 
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/v1/admin/users"
-                        ).hasRole("ADMIN")
+                                                .requestMatchers(
+                                                                HttpMethod.POST,
+                                                                "/api/v1/admin/users")
+                                                .hasRole("ADMIN")
 
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/v1/tickets"
-                        ).hasAnyRole("CUSTOMER", "ADMIN")
-                        .requestMatchers(
-                                HttpMethod.PATCH,
-                                "/api/v1/tickets/*/assign"
-                        ).hasRole("ADMIN")
+                                                .requestMatchers(
+                                                                HttpMethod.POST,
+                                                                "/api/v1/tickets")
+                                                .hasAnyRole("CUSTOMER", "ADMIN")
+                                                .requestMatchers(
+                                                                HttpMethod.PATCH,
+                                                                "/api/v1/tickets/*/assign")
+                                                .hasRole("ADMIN")
 
-                        .requestMatchers(
-                                HttpMethod.PATCH,
-                                "/api/v1/tickets/*/status"
-                        ).hasAnyRole(
-                                "AGENT",
-                                "ADMIN"
-                        )
+                                                .requestMatchers(
+                                                                HttpMethod.PATCH,
+                                                                "/api/v1/tickets/*/status")
+                                                .hasAnyRole(
+                                                                "AGENT",
+                                                                "ADMIN")
+                                                .requestMatchers(
+                                                                HttpMethod.GET,
+                                                                "/api/v1/admin/users")
+                                                .hasRole("ADMIN")
+                                                .requestMatchers(
+                                                        HttpMethod.GET,
+                                                        "/api/v1/admin/teams"
+                                                ).hasRole("ADMIN")
 
-                        .anyRequest().authenticated()
-                )
+                                                .anyRequest().authenticated())
 
-                .httpBasic(AbstractHttpConfigurer::disable);
+                                .httpBasic(AbstractHttpConfigurer::disable);
 
-        http.addFilterBefore(
-                jwtAuthenticationFilter,
-                UsernamePasswordAuthenticationFilter.class
-        );
+                http.addFilterBefore(
+                                jwtAuthenticationFilter,
+                                UsernamePasswordAuthenticationFilter.class);
 
-        return http.build();
-    }
+                return http.build();
+        }
 }

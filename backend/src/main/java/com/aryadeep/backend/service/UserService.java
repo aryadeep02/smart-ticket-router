@@ -3,6 +3,7 @@ package com.aryadeep.backend.service;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.aryadeep.backend.dto.AdminUserResponse;
 import com.aryadeep.backend.dto.LoginResponse;
 import com.aryadeep.backend.entity.Role;
 import com.aryadeep.backend.entity.User;
@@ -11,7 +12,7 @@ import com.aryadeep.backend.exception.InvalidCredentialsException;
 import com.aryadeep.backend.repository.SupportTeamRepository;
 import com.aryadeep.backend.repository.UserRepository;
 import com.aryadeep.backend.entity.SupportTeam;
-
+import java.util.List;
 
 @Service
 public class UserService {
@@ -105,4 +106,22 @@ public class UserService {
                 user.getEmail(),
                 user.getRole().name());
     }
+    public List<AdminUserResponse> getAllUsers() {
+
+    return userRepository.findAll()
+            .stream()
+            .map(user -> new AdminUserResponse(
+                    user.getId(),
+                    user.getName(),
+                    user.getEmail(),
+                    user.getRole().name(),
+                    user.getSupportTeam() != null
+                            ? user.getSupportTeam().getId()
+                            : null,
+                    user.getSupportTeam() != null
+                            ? user.getSupportTeam().getName()
+                            : null
+            ))
+            .toList();
+}
 }
