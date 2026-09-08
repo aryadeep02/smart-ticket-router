@@ -13,60 +13,54 @@ import TicketDetail from "./pages/TicketDetail";
 import AdminUsers from "./pages/AdminUsers";
 import AdminTeams from "./pages/AdminTeams";
 import OAuth2Callback from "./pages/OAuth2Callback";
-
+import VerifyEmail from "./pages/VerifyEmail";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
+    <Routes>
 
-        {/* Public Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+
         <Route
-          path="/oauth2/callback"
-          element={<OAuth2Callback />}
+            path="/verify-email"
+            element={<VerifyEmail />}
         />
 
-        {/* Protected Routes */}
+        <Route
+            path="/oauth2/callback"
+            element={<OAuth2Callback />}
+        />
+
         <Route element={<ProtectedRoute />}>
-
-          <Route
-            path="/dashboard"
-            element={<Dashboard />}
-          />
-
-          <Route
-            path="/tickets/create"
-            element={<CreateTicket />}
-          />
-
-          <Route
-            path="/tickets/:id"
-            element={<TicketDetail />}
-          />
-
-          <Route
-            path="/admin/users"
-            element={<AdminUsers />}
-          />
-
-          <Route
-            path="/admin/teams"
-            element={<AdminTeams />}
-          />
-
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route
+                path="/tickets/create"
+                element={<CreateTicket />}
+            />
+            <Route
+                path="/tickets/:id"
+                element={<TicketDetail />}
+            />
+            <Route
+                path="/admin/users"
+                element={<AdminUsers />}
+            />
+            <Route
+                path="/admin/teams"
+                element={<AdminTeams />}
+            />
         </Route>
 
-        {/* Fallback */}
         <Route
-          path="*"
-          element={<Navigate to="/login" replace />}
+            path="*"
+            element={<Navigate to="/login" replace />}
         />
 
-      </Routes>
-    </BrowserRouter>
+    </Routes>
+</BrowserRouter>
   );
 }
 

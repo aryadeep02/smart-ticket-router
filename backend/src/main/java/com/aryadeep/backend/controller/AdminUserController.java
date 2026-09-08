@@ -1,5 +1,7 @@
 package com.aryadeep.backend.controller;
 
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -10,12 +12,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.aryadeep.backend.dto.AdminUserResponse;
 import com.aryadeep.backend.dto.CreateUserRequest;
-import com.aryadeep.backend.dto.RegisterResponse;
 import com.aryadeep.backend.entity.User;
 import com.aryadeep.backend.service.UserService;
 
 import jakarta.validation.Valid;
-import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/admin/users")
 public class AdminUserController {
@@ -28,7 +29,7 @@ public class AdminUserController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public RegisterResponse createUser(
+    public AdminUserResponse createUser(
             @Valid @RequestBody CreateUserRequest request) {
 
         User user = userService.createUserWithRole(
@@ -38,11 +39,17 @@ public class AdminUserController {
                 request.role(),
                 request.supportTeamId());
 
-        return new RegisterResponse(
+        return new AdminUserResponse(
                 user.getId(),
                 user.getName(),
                 user.getEmail(),
-                user.getRole().name());
+                user.getRole().name(),
+                user.getSupportTeam() != null
+                        ? user.getSupportTeam().getId()
+                        : null,
+                user.getSupportTeam() != null
+                        ? user.getSupportTeam().getName()
+                        : null);
     }
 
     @GetMapping

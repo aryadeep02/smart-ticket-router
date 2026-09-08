@@ -1,5 +1,7 @@
 package com.aryadeep.backend.service;
 
+import com.aryadeep.backend.entity.AuthProvider;
+import com.aryadeep.backend.entity.Role;
 import com.aryadeep.backend.entity.Ticket;
 import com.aryadeep.backend.entity.TicketCategory;
 import com.aryadeep.backend.entity.TicketPriority;
@@ -11,6 +13,7 @@ import com.aryadeep.backend.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
 
@@ -28,11 +31,22 @@ class SlaMonitoringServiceIntegrationTest {
     @Autowired
     private SlaMonitoringService slaMonitoringService;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     @Test
     void shouldMarkExpiredTicketAsBreached() {
 
-        User customer = userRepository.findByEmail("test@example.com")
-                .orElseThrow();
+        User customer = User.builder()
+                .name("SLA Test User")
+                .email("sla-test@example.com")
+                .password(passwordEncoder.encode("Test@1234"))
+                .role(Role.CUSTOMER)
+                .authProvider(AuthProvider.LOCAL)
+                .emailVerified(true)
+                .build();
+
+        User savedCustomer = userRepository.save(customer);
 
         Ticket ticket = Ticket.builder()
                 .title("SLA integration test")
@@ -40,7 +54,7 @@ class SlaMonitoringServiceIntegrationTest {
                 .category(TicketCategory.PAYMENT)
                 .priority(TicketPriority.HIGH)
                 .status(TicketStatus.OPEN)
-                .customer(customer)
+                .customer(savedCustomer)
                 .slaDeadline(LocalDateTime.now().minusHours(1))
                 .slaBreached(false)
                 .build();
@@ -56,5 +70,6 @@ class SlaMonitoringServiceIntegrationTest {
         assertTrue(updatedTicket.getSlaBreached());
 
         ticketRepository.delete(updatedTicket);
+        userRepository.delete(savedCustomer);
     }
 }

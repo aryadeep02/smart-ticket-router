@@ -16,7 +16,6 @@ import com.aryadeep.backend.dto.LoginRequest;
 import com.aryadeep.backend.dto.LoginResponse;
 import com.aryadeep.backend.dto.RegisterRequest;
 import com.aryadeep.backend.dto.RegisterResponse;
-import com.aryadeep.backend.entity.User;
 import com.aryadeep.backend.service.EmailVerificationService;
 import com.aryadeep.backend.service.UserService;
 
@@ -42,16 +41,10 @@ public class AuthController {
     public RegisterResponse register(
             @Valid @RequestBody RegisterRequest request) {
 
-        User user = userService.registerUser(
+        return userService.registerUser(
                 request.name(),
                 request.email(),
                 request.password());
-
-        return new RegisterResponse(
-                user.getId(),
-                user.getName(),
-                user.getEmail(),
-                user.getRole().name());
     }
 
     @PostMapping("/login")
@@ -81,5 +74,18 @@ public class AuthController {
         return Map.of(
                 "message",
                 "Email verified successfully");
+    }
+
+    @PostMapping("/resend-verification")
+    @ResponseStatus(HttpStatus.OK)
+    public Map<String, String> resendVerificationEmail(
+            @RequestParam String email) {
+
+        userService.resendVerificationEmail(email);
+
+        return Map.of(
+                "message",
+                "If the account exists and is not verified, "
+                        + "a new verification email has been sent.");
     }
 }
