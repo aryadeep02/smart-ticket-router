@@ -14,7 +14,6 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.List;
-
 import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
@@ -23,7 +22,8 @@ public class SecurityConfig {
         @Bean
         public SecurityFilterChain securityFilterChain(
                         HttpSecurity http,
-                        JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
+                        JwtAuthenticationFilter jwtAuthenticationFilter,
+                        GoogleOAuth2SuccessHandler googleOAuth2SuccessHandler) throws Exception {
 
                 AuthenticationEntryPoint authenticationEntryPoint = (request, response, authException) -> {
 
@@ -48,6 +48,7 @@ public class SecurityConfig {
                 };
 
                 http
+
                                 .csrf(AbstractHttpConfigurer::disable)
                                 .cors(cors -> {
                                 })
@@ -99,12 +100,14 @@ public class SecurityConfig {
                                                 .hasRole("ADMIN")
 
                                                 .requestMatchers(
-                                                        HttpMethod.GET,
-                                                        "/api/v1/tickets/admin/summary"
-                                                ).hasRole("ADMIN")
+                                                                HttpMethod.GET,
+                                                                "/api/v1/tickets/admin/summary")
+                                                .hasRole("ADMIN")
 
                                                 .anyRequest().authenticated())
 
+                                .oauth2Login(oauth2 -> oauth2
+                                                .successHandler(googleOAuth2SuccessHandler))
                                 .httpBasic(AbstractHttpConfigurer::disable);
 
                 http.addFilterBefore(

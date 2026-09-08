@@ -13,6 +13,7 @@ import {
     user: LoginResponse | null;
     token: string | null;
     login: (credentials: LoginRequest) => Promise<void>;
+    loginWithToken: (token: string) => Promise<void>;
     logout: () => void;
     isAuthenticated: boolean;
   }
@@ -25,6 +26,7 @@ import {
   
   export function AuthProvider({ children }: AuthProviderProps) {
     const [user, setUser] = useState<LoginResponse | null>(null);
+  
     const [token, setToken] = useState<string | null>(
       localStorage.getItem("token")
     );
@@ -56,6 +58,31 @@ import {
       setUser(loginData);
     };
   
+    const loginWithToken = async (newToken: string) => {
+      localStorage.setItem("token", newToken);
+      setToken(newToken);
+  
+      try {
+        const response = await api.get<LoginResponse>("/auth/me");
+  
+        const userData = {
+          ...response.data,
+          token: newToken,
+        };
+  
+        localStorage.setItem("user", JSON.stringify(userData));
+        setUser(userData);
+      } catch (error) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+  
+        setToken(null);
+        setUser(null);
+  
+        throw error;
+      }
+    };
+  
     const logout = () => {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
@@ -70,6 +97,7 @@ import {
           user,
           token,
           login,
+          loginWithToken,
           logout,
           isAuthenticated: Boolean(token),
         }}
