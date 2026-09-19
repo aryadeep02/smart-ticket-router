@@ -14,8 +14,14 @@ public class EmailService {
 
     public EmailService(
             JavaMailSender mailSender,
-            @Value("${mail.from}") String mailFrom,
+            @Value("${spring.mail.username}") String mailFrom,
             @Value("${frontend.url}") String frontendUrl) {
+
+        if (mailFrom == null || mailFrom.isBlank()) {
+            throw new IllegalStateException(
+                    "spring.mail.username must be configured"
+            );
+        }
 
         this.mailSender = mailSender;
         this.mailFrom = mailFrom;
@@ -50,6 +56,41 @@ public class EmailService {
                         + "This verification link expires in 24 hours.\n\n"
                         + "If you did not create this account, you can "
                         + "safely ignore this email.\n\n"
+                        + "Regards,\n"
+                        + "Smart Ticket Router");
+
+        mailSender.send(message);
+    }
+
+    public void sendPasswordResetEmail(
+            String recipientEmail,
+            String recipientName,
+            String resetToken) {
+
+        String resetUrl =
+                frontendUrl
+                        + "/reset-password?token="
+                        + resetToken;
+
+        SimpleMailMessage message =
+                new SimpleMailMessage();
+
+        message.setFrom(mailFrom);
+        message.setTo(recipientEmail);
+        message.setSubject(
+                "Reset your Smart Ticket Router password");
+
+        message.setText(
+                "Hi " + recipientName + ",\n\n"
+                        + "We received a request to reset your "
+                        + "Smart Ticket Router password.\n\n"
+                        + "You can reset your password by clicking "
+                        + "the link below:\n\n"
+                        + resetUrl
+                        + "\n\n"
+                        + "This password reset link expires in 1 hour.\n\n"
+                        + "If you did not request a password reset, "
+                        + "you can safely ignore this email.\n\n"
                         + "Regards,\n"
                         + "Smart Ticket Router");
 

@@ -1,5 +1,9 @@
 package com.aryadeep.backend.config;
 
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -13,140 +17,219 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import java.util.List;
+
 import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
 public class SecurityConfig {
 
-        @Bean
-        public SecurityFilterChain securityFilterChain(
-                        HttpSecurity http,
-                        JwtAuthenticationFilter jwtAuthenticationFilter,
-                        GoogleOAuth2SuccessHandler googleOAuth2SuccessHandler) throws Exception {
+    private static final Logger logger =
+            LoggerFactory.getLogger(SecurityConfig.class);
 
-                AuthenticationEntryPoint authenticationEntryPoint = (request, response, authException) -> {
+    @Bean
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            GoogleOAuth2SuccessHandler googleOAuth2SuccessHandler)
+            throws Exception {
 
-                        response.setStatus(
-                                        HttpServletResponse.SC_UNAUTHORIZED);
+        AuthenticationEntryPoint authenticationEntryPoint =
+                (request, response, authException) -> {
 
-                        response.setContentType("application/json");
+                    response.setStatus(
+                            HttpServletResponse.SC_UNAUTHORIZED);
 
-                        response.getWriter().write(
-                                        "{\"message\":\"Unauthorized\"}");
+                    response.setContentType("application/json");
+
+                    response.getWriter().write(
+                            "{\"message\":\"Unauthorized\"}");
                 };
 
-                AccessDeniedHandler accessDeniedHandler = (request, response, accessDeniedException) -> {
+        AccessDeniedHandler accessDeniedHandler =
+                (request, response, accessDeniedException) -> {
 
-                        response.setStatus(
-                                        HttpServletResponse.SC_FORBIDDEN);
+                    response.setStatus(
+                            HttpServletResponse.SC_FORBIDDEN);
 
-                        response.setContentType("application/json");
+                    response.setContentType("application/json");
 
-                        response.getWriter().write(
-                                        "{\"message\":\"Forbidden\"}");
+                    response.getWriter().write(
+                            "{\"message\":\"Forbidden\"}");
                 };
 
-                http
+        http
+                .csrf(AbstractHttpConfigurer::disable)
 
-                                .csrf(AbstractHttpConfigurer::disable)
-                                .cors(cors -> {
-                                })
+                .cors(cors -> {
+                })
 
-                                .sessionManagement(session -> session.sessionCreationPolicy(
-                                                SessionCreationPolicy.STATELESS))
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(
+                                SessionCreationPolicy.STATELESS))
 
-                                .exceptionHandling(exception -> exception
-                                                .authenticationEntryPoint(
-                                                                authenticationEntryPoint)
-                                                .accessDeniedHandler(
-                                                                accessDeniedHandler))
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(
+                                authenticationEntryPoint)
+                        .accessDeniedHandler(
+                                accessDeniedHandler))
 
-                                .authorizeHttpRequests(auth -> auth
+                .authorizeHttpRequests(auth -> auth
 
-                                                .requestMatchers(
-                                                                "/api/v1/health",
-                                                                "/api/v1/auth/register",
-                                                                "/api/v1/auth/login",
-                                                                "/api/v1/auth/verify-email",
-                                                                "/api/v1/auth/resend-verification")
-                                                .permitAll()
+                        /*
+                         * Public application endpoints
+                         */
+                        .requestMatchers(
+                                "/api/v1/health",
+                                "/api/v1/auth/register",
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/verify-email",
+                                "/api/v1/auth/resend-verification",
+                                "/api/v1/auth/forgot-password",
+                                "/api/v1/auth/reset-password")
+                        .permitAll()
 
-                                                .requestMatchers(
-                                                                HttpMethod.POST,
-                                                                "/api/v1/admin/users")
-                                                .hasRole("ADMIN")
+                        /*
+                         * OAuth2 endpoints
+                         */
+                        .requestMatchers(
+                                "/oauth2/**",
+                                "/login",
+                                "/login/**")
+                        .permitAll()
 
-                                                .requestMatchers(
-                                                                HttpMethod.POST,
-                                                                "/api/v1/tickets")
-                                                .hasAnyRole("CUSTOMER", "ADMIN")
-                                                .requestMatchers(
-                                                                HttpMethod.PATCH,
-                                                                "/api/v1/tickets/*/assign")
-                                                .hasRole("ADMIN")
+                        /*
+                         * Admin user creation
+                         */
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/v1/admin/users")
+                        .hasRole("ADMIN")
 
-                                                .requestMatchers(
-                                                                HttpMethod.PATCH,
-                                                                "/api/v1/tickets/*/status")
-                                                .hasAnyRole(
-                                                                "AGENT",
-                                                                "ADMIN")
-                                                .requestMatchers(
-                                                                HttpMethod.GET,
-                                                                "/api/v1/admin/users")
-                                                .hasRole("ADMIN")
-                                                .requestMatchers(
-                                                                HttpMethod.GET,
-                                                                "/api/v1/admin/teams")
-                                                .hasRole("ADMIN")
+                        /*
+                         * Ticket creation
+                         */
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/v1/tickets")
+                        .hasAnyRole(
+                                "CUSTOMER",
+                                "ADMIN")
 
-                                                .requestMatchers(
-                                                                HttpMethod.GET,
-                                                                "/api/v1/tickets/admin/summary")
-                                                .hasRole("ADMIN")
+                        /*
+                         * Ticket assignment
+                         */
+                        .requestMatchers(
+                                HttpMethod.PATCH,
+                                "/api/v1/tickets/*/assign")
+                        .hasRole("ADMIN")
 
-                                                .anyRequest().authenticated())
+                        /*
+                         * Ticket status update
+                         */
+                        .requestMatchers(
+                                HttpMethod.PATCH,
+                                "/api/v1/tickets/*/status")
+                        .hasAnyRole(
+                                "AGENT",
+                                "ADMIN")
 
-                                .oauth2Login(oauth2 -> oauth2
-                                                .successHandler(googleOAuth2SuccessHandler))
-                                .httpBasic(AbstractHttpConfigurer::disable);
+                        /*
+                         * Admin users
+                         */
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/admin/users")
+                        .hasRole("ADMIN")
 
-                http.addFilterBefore(
-                                jwtAuthenticationFilter,
-                                UsernamePasswordAuthenticationFilter.class);
+                        /*
+                         * Admin support teams
+                         */
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/admin/teams")
+                        .hasRole("ADMIN")
 
-                return http.build();
-        }
+                        /*
+                         * Admin dashboard
+                         */
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/tickets/admin/summary")
+                        .hasRole("ADMIN")
 
-        @Bean
-        public CorsConfigurationSource corsConfigurationSource() {
+                        /*
+                         * Everything else requires authentication.
+                         */
+                        .anyRequest()
+                        .authenticated())
 
-                CorsConfiguration configuration = new CorsConfiguration();
+                /*
+                 * Google OAuth2 login
+                 */
+                .oauth2Login(oauth2 -> oauth2
 
-                configuration.setAllowedOrigins(
-                                List.of("http://localhost:5173"));
+                        .successHandler(
+                                googleOAuth2SuccessHandler)
 
-                configuration.setAllowedMethods(
-                                List.of(
-                                                "GET",
-                                                "POST",
-                                                "PUT",
-                                                "PATCH",
-                                                "DELETE",
-                                                "OPTIONS"));
+                        /*
+                         * Do not let Spring hide the real OAuth
+                         * failure behind /login?error.
+                         */
+                        .failureHandler(
+                                (request, response, exception) -> {
 
-                configuration.setAllowedHeaders(
-                                List.of("*"));
+                                    logger.error(
+                                            "Google OAuth2 login failed",
+                                            exception);
 
-                configuration.setAllowCredentials(true);
+                                    response.sendRedirect(
+                                            "http://localhost:5173/login"
+                                                    + "?error=google-login-failed");
+                                }))
 
-                UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+                /*
+                 * JWT authentication is used instead of
+                 * HTTP Basic authentication.
+                 */
+                .httpBasic(AbstractHttpConfigurer::disable);
 
-                source.registerCorsConfiguration(
-                                "/**",
-                                configuration);
+        http.addFilterBefore(
+                jwtAuthenticationFilter,
+                UsernamePasswordAuthenticationFilter.class);
 
-                return source;
-        }
+        return http.build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+
+        CorsConfiguration configuration =
+                new CorsConfiguration();
+
+        configuration.setAllowedOrigins(
+                List.of("http://localhost:5173"));
+
+        configuration.setAllowedMethods(
+                List.of(
+                        "GET",
+                        "POST",
+                        "PUT",
+                        "PATCH",
+                        "DELETE",
+                        "OPTIONS"));
+
+        configuration.setAllowedHeaders(
+                List.of("*"));
+
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
+        source.registerCorsConfiguration(
+                "/**",
+                configuration);
+
+        return source;
+    }
 }

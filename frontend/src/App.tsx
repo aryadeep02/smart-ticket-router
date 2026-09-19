@@ -1,9 +1,4 @@
-import {
-  BrowserRouter,
-  Navigate,
-  Route,
-  Routes,
-} from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -15,52 +10,35 @@ import AdminTeams from "./pages/AdminTeams";
 import OAuth2Callback from "./pages/OAuth2Callback";
 import VerifyEmail from "./pages/VerifyEmail";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ForgotPassword from "./pages/ ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 function App() {
   return (
     <BrowserRouter>
-    <Routes>
-
+      <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        <Route
-            path="/verify-email"
-            element={<VerifyEmail />}
-        />
+        <Route path="/verify-email" element={<VerifyEmail />} />
 
-        <Route
-            path="/oauth2/callback"
-            element={<OAuth2Callback />}
-        />
+        <Route path="/oauth2/callback" element={<OAuth2Callback />} />
 
         <Route element={<ProtectedRoute />}>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route
-                path="/tickets/create"
-                element={<CreateTicket />}
-            />
-            <Route
-                path="/tickets/:id"
-                element={<TicketDetail />}
-            />
-            <Route
-                path="/admin/users"
-                element={<AdminUsers />}
-            />
-            <Route
-                path="/admin/teams"
-                element={<AdminTeams />}
-            />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/tickets/create" element={<CreateTicket />} />
+          <Route path="/tickets/:id" element={<TicketDetail />} />
+          <Route path="/admin/users" element={<AdminUsers />} />
+          <Route path="/admin/teams" element={<AdminTeams />} />
         </Route>
 
-        <Route
-            path="*"
-            element={<Navigate to="/login" replace />}
-        />
+        <Route path="*" element={<Navigate to="/login" replace />} />
 
-    </Routes>
-</BrowserRouter>
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+
+        <Route path="/reset-password" element={<ResetPassword />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

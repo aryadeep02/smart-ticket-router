@@ -111,6 +111,16 @@ export default function Login() {
             />
           </div>
 
+          <div className="forgot-password-link">
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => navigate("/forgot-password")}
+            >
+              Forgot Password?
+            </button>
+          </div>
+
           {error && (
             <div className="form-error">
               {error}
@@ -151,5 +161,3 @@ export default function Login() {
     </main>
   );
 }
-
-// %24%7B%7D&aes=AVQXgOCDqAOK-lIMa6kIQ4er-a3E

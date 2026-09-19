@@ -85,10 +85,16 @@ public class UserService {
 
         } catch (MailException exception) {
 
+            /*
+             * Log the complete exception so we can inspect
+             * the underlying mail parsing/delivery problem.
+             *
+             * No password or secret is logged here.
+             */
             logger.error(
-                    "Failed to send verification email to {}: {}",
+                    "Failed to send verification email to {}",
                     savedUser.getEmail(),
-                    exception.getMessage());
+                    exception);
 
             verificationEmailSent = false;
         }
@@ -260,11 +266,13 @@ public class UserService {
                                 "Unable to process verification request"));
 
         if (user.getAuthProvider() != AuthProvider.LOCAL) {
+
             throw new IllegalStateException(
                     "Email verification is only available for local accounts");
         }
 
         if (user.isEmailVerified()) {
+
             throw new IllegalStateException(
                     "Email is already verified");
         }
@@ -281,10 +289,16 @@ public class UserService {
 
         } catch (MailException exception) {
 
+            /*
+             * Log the complete exception chain.
+             *
+             * This is temporary diagnostic logging so we can
+             * identify exactly what JavaMail is rejecting.
+             */
             logger.error(
-                    "Failed to resend verification email to {}: {}",
+                    "Failed to resend verification email to {}",
                     user.getEmail(),
-                    exception.getMessage());
+                    exception);
 
             throw new IllegalStateException(
                     "Unable to send verification email");

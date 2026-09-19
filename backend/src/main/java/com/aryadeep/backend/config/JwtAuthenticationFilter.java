@@ -27,73 +27,135 @@ import jakarta.servlet.http.HttpServletResponse;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final UserRepository userRepository;
-    private final SecretKey secretKey;
+        private final UserRepository userRepository;
+        private final SecretKey secretKey;
 
-    public JwtAuthenticationFilter(
-            UserRepository userRepository,
-            @Value("${jwt.secret}") String secret) {
+        public JwtAuthenticationFilter(
+                        UserRepository userRepository,
+                        @Value("${jwt.secret}") String secret) {
 
-        this.userRepository = userRepository;
+                this.userRepository = userRepository;
 
-        this.secretKey = Keys.hmacShaKeyFor(
-                secret.getBytes(StandardCharsets.UTF_8)
-        );
-    }
+                if (secret == null || secret.isBlank()) {
+                        throw new IllegalStateException(
+                                        "JWT secret must be configured");
+                }
 
-    @Override
-    protected void doFilterInternal(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain filterChain)
-            throws ServletException, IOException {
-
-        String authHeader = request.getHeader("Authorization");
-
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
-            return;
+                this.secretKey = Keys.hmacShaKeyFor(
+                                secret.getBytes(StandardCharsets.UTF_8));
         }
 
-        String token = authHeader.substring(7);
+        @Override
+        protected void doFilterInternal(
+                        HttpServletRequest request,
+                        HttpServletResponse response,
+                        FilterChain filterChain)
+                        throws ServletException, IOException {
 
-        try {
-            Claims claims = Jwts.parser()
-                    .verifyWith(secretKey)
-                    .build()
-                    .parseSignedClaims(token)
-                    .getPayload();
+                String authorizationHeader = request.getHeader("Authorization");
 
-            String email = claims.getSubject();
+                /*
+                 * No Authorization header or not a Bearer token.
+                 * Continue normally and let Spring Security decide
+                 * whether authentication is required.
+                 */
+                if (authorizationHeader == null
+                                || !authorizationHeader.startsWith("Bearer ")) {
 
-            User user = userRepository
-                    .findByEmail(email)
-                    .orElse(null);
+                        filterChain.doFilter(request, response);
+                        return;
+                }
 
-            if (user != null) {
+                String token = authorizationHeader.substring(7).trim();
 
-                SimpleGrantedAuthority authority =
-                        new SimpleGrantedAuthority(
-                                "ROLE_" + user.getRole().name()
-                        );
+                /*
+                 * Reject an empty Bearer token.
+                 */
+                if (token.isEmpty()) {
+                        filterChain.doFilter(request, response);
+                        return;
+                }
 
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(
-                                user.getEmail(),
-                                null,
-                                List.of(authority)
-                        );
+                try {
 
-                SecurityContextHolder
-                        .getContext()
-                        .setAuthentication(authentication);
-            }
+                        /*
+                         * Parse and validate the JWT.
+                         *
+                         * This verifies:
+                         * - signature
+                         * - expiration
+                         * - token structure
+                         */
+                        Claims claims = Jwts.parser()
+                                        .verifyWith(secretKey)
+                                        .build()
+                                        .parseSignedClaims(token)
+                                        .getPayload();
 
-        } catch (Exception exception) {
-            // Invalid or expired JWT.
-            // Leave the request unauthenticated.
+                        /*
+                         * Our JWT subject contains the user's email.
+                         */
+                        String email = claims.getSubject();
+
+                        if (email == null || email.isBlank()) {
+                                filterChain.doFilter(request, response);
+                                return;
+                        }
+
+                        /*
+                         * Load the user from the database.
+                         *
+                         * We intentionally do not trust role information
+                         * stored inside the JWT.
+                         *
+                         * This means database role changes take effect
+                         * on the next authenticated request.
+                         */
+                        User user = userRepository
+                                        .findByEmail(email)
+                                        .orElse(null);
+
+                        if (user == null) {
+                                filterChain.doFilter(request, response);
+                                return;
+                        }
+
+                        /*
+                         * Do not overwrite an authentication created
+                         * by another authentication mechanism.
+                         */
+                        if (SecurityContextHolder
+                                        .getContext()
+                                        .getAuthentication() == null) {
+
+                                String role = "ROLE_" + user.getRole().name();
+
+                                SimpleGrantedAuthority authority = new SimpleGrantedAuthority(role);
+
+                                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                                                user.getEmail(),
+                                                null,
+                                                List.of(authority));
+
+                                SecurityContextHolder
+                                                .getContext()
+                                                .setAuthentication(authentication);
+                        }
+
+                } catch (Exception exception) {
+
+                        /*
+                         * Invalid / expired / malformed JWT:
+                         * do not authenticate the request.
+                         *
+                         * Spring Security will handle the request afterward.
+                         */
+                        SecurityContextHolder.clearContext();
+                }
+
+                /*
+                 * Continue the security filter chain.
+                 */
+                filterChain.doFilter(request, response);
         }
-
-        filterChain.doFilter(request, response);
-    }
 }
