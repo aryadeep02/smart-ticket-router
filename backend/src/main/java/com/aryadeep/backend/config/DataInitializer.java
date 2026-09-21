@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import com.aryadeep.backend.entity.AuthProvider;
 import com.aryadeep.backend.entity.Role;
 import com.aryadeep.backend.entity.SupportTeam;
 import com.aryadeep.backend.entity.User;
@@ -15,6 +16,7 @@ import com.aryadeep.backend.repository.UserRepository;
 public class DataInitializer {
 
     @Bean
+    @SuppressWarnings("unused")
     CommandLineRunner initializeData(
             SupportTeamRepository supportTeamRepository,
             UserRepository userRepository,
@@ -84,12 +86,14 @@ public class DataInitializer {
 
         if (!userRepository.existsByEmail("admin@example.com")) {
 
-            User admin = User.builder()
-                    .name("System Admin")
-                    .email("admin@example.com")
-                    .password(passwordEncoder.encode("Admin@1234"))
-                    .role(Role.ADMIN)
-                    .build();
+                User admin = User.builder()
+                .name("System Admin")
+                .email("admin@example.com")
+                .password(passwordEncoder.encode("Admin@1234"))
+                .role(Role.ADMIN)
+                .authProvider(AuthProvider.LOCAL)
+                .emailVerified(true)
+                .build();
 
             userRepository.save(admin);
         }

@@ -1,10 +1,25 @@
 {
-    "java.compile.nullAnalysis.mode": "disabled",
     "cSpell.words": [
-        "aryadeep",
-        "aryadeepvarshney",
-        "projectlombok",
-        "springframework"
+        "venv",
+        "pycache",
+        "uvicorn",
+        "factorypath",
+        "nbproject",
+        "nbbuild",
+        "nbdist",
+        "temurin",
+        "mvnw",
+        "Dskip",
+        "jdbc",
+        "starttls",
+        "connectiontimeout",
+        "writetimeout",
+        "xmloption"
     ],
-    "java.configuration.updateBuildConfiguration": "automatic"
+    "cSpell.ignorePaths": [
+        "**/db/migration/**/*.sql",
+        "**/.gitignore",
+        "**/.dockerignore"
+    ],
+    "java.compile.nullAnalysis.mode": "disabled"
 }

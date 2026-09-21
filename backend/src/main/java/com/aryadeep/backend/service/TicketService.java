@@ -2,6 +2,8 @@ package com.aryadeep.backend.service;
 
 import java.time.LocalDateTime;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import com.aryadeep.backend.dto.AIClassificationResponse;
@@ -19,326 +21,364 @@ import com.aryadeep.backend.entity.User;
 import com.aryadeep.backend.repository.SupportTeamRepository;
 import com.aryadeep.backend.repository.TicketRepository;
 import com.aryadeep.backend.repository.UserRepository;
-
 import com.aryadeep.backend.specification.TicketSpecification;
-import java.util.List;
 
 @Service
 public class TicketService {
 
-        private final TicketHistoryService ticketHistoryService;
+    private final TicketHistoryService ticketHistoryService;
+    private final TicketRepository ticketRepository;
+    private final UserRepository userRepository;
+    private final SupportTeamRepository supportTeamRepository;
+    private final AIClassificationService aiClassificationService;
+    private final TicketWorkflowService ticketWorkflowService;
+    private final TicketAccessService ticketAccessService;
 
-        private final TicketRepository ticketRepository;
-        private final UserRepository userRepository;
-        private final SupportTeamRepository supportTeamRepository;
-        private final AIClassificationService aiClassificationService;
-        private final TicketWorkflowService ticketWorkflowService;
-        private final TicketAccessService ticketAccessService;
+    public TicketService(
+            TicketRepository ticketRepository,
+            UserRepository userRepository,
+            SupportTeamRepository supportTeamRepository,
+            AIClassificationService aiClassificationService,
+            TicketWorkflowService ticketWorkflowService,
+            TicketHistoryService ticketHistoryService,
+            TicketAccessService ticketAccessService) {
 
-        public TicketService(
-                        TicketRepository ticketRepository,
-                        UserRepository userRepository,
-                        SupportTeamRepository supportTeamRepository,
-                        AIClassificationService aiClassificationService,
-                        TicketWorkflowService ticketWorkflowService,
-                        TicketHistoryService ticketHistoryService,
-                        TicketAccessService ticketAccessService) {
+        this.ticketRepository = ticketRepository;
+        this.userRepository = userRepository;
+        this.supportTeamRepository = supportTeamRepository;
+        this.aiClassificationService = aiClassificationService;
+        this.ticketWorkflowService = ticketWorkflowService;
+        this.ticketHistoryService = ticketHistoryService;
+        this.ticketAccessService = ticketAccessService;
+    }
 
-                this.ticketRepository = ticketRepository;
-                this.userRepository = userRepository;
-                this.supportTeamRepository = supportTeamRepository;
-                this.aiClassificationService = aiClassificationService;
-                this.ticketWorkflowService = ticketWorkflowService;
-                this.ticketHistoryService = ticketHistoryService;
-                this.ticketAccessService = ticketAccessService;
+    public TicketResponse createTicket(
+            CreateTicketRequest request,
+            String customerEmail) {
+
+        User customer = userRepository.findByEmail(customerEmail)
+                .orElseThrow(() ->
+                        new RuntimeException("Customer not found"));
+
+        AIClassificationResponse aiResponse;
+
+        try {
+            aiResponse = aiClassificationService.classify(
+                    request.title(),
+                    request.description());
+        } catch (Exception exception) {
+            aiResponse = null;
         }
 
-        public TicketResponse createTicket(
-                        CreateTicketRequest request,
-                        String customerEmail) {
+        TicketCategory category;
+        TicketPriority priority;
+        Double aiConfidence;
+        String aiClassificationStatus;
 
-                User customer = userRepository.findByEmail(customerEmail)
-                                .orElseThrow(() -> new RuntimeException("Customer not found"));
+        if (aiResponse == null
+                || aiResponse.confidence() < 0.55) {
 
-                AIClassificationResponse aiResponse;
+            category = TicketCategory.OTHER;
+            priority = TicketPriority.MEDIUM;
 
-                try {
-                        aiResponse = aiClassificationService.classify(
-                                        request.title(),
-                                        request.description());
-                } catch (Exception exception) {
+            aiConfidence = aiResponse != null
+                    ? aiResponse.confidence()
+                    : null;
 
-                        aiResponse = null;
-                }
+            aiClassificationStatus = "FALLBACK";
 
-                TicketCategory category;
-                TicketPriority priority;
-                Double aiConfidence;
-                String aiClassificationStatus;
+        } else {
 
-                if (aiResponse == null || aiResponse.confidence() < 0.55) {
+            category = TicketCategory.valueOf(
+                    aiResponse.category());
 
-                        category = TicketCategory.OTHER;
-                        priority = TicketPriority.MEDIUM;
+            priority = TicketPriority.valueOf(
+                    aiResponse.priority());
 
-                        aiConfidence = aiResponse != null
-                                        ? aiResponse.confidence()
-                                        : null;
-
-                        aiClassificationStatus = "FALLBACK";
-
-                } else {
-
-                        category = TicketCategory.valueOf(
-                                        aiResponse.category());
-
-                        priority = TicketPriority.valueOf(
-                                        aiResponse.priority());
-
-                        aiConfidence = aiResponse.confidence();
-                        aiClassificationStatus = "COMPLETED";
-                }
-
-                LocalDateTime slaDeadline = calculateSlaDeadline(priority);
-
-                SupportTeam supportTeam = routeToSupportTeam(category);
-
-                Ticket ticket = Ticket.builder()
-                                .title(request.title())
-                                .description(request.description())
-                                .category(category)
-                                .priority(priority)
-                                .status(TicketStatus.OPEN)
-                                .customer(customer)
-                                .supportTeam(supportTeam)
-                                .aiConfidence(aiConfidence)
-                                .aiClassificationStatus(aiClassificationStatus)
-                                .slaDeadline(slaDeadline)
-                                .build();
-
-                Ticket savedTicket = ticketRepository.save(ticket);
-
-                ticketHistoryService.record(
-                                savedTicket,
-                                customer,
-                                "TICKET_CREATED",
-                                null,
-                                TicketStatus.OPEN.name());
-
-                return toResponse(savedTicket);
+            aiConfidence = aiResponse.confidence();
+            aiClassificationStatus = "COMPLETED";
         }
 
-        public TicketResponse updateStatus(
-                        Long ticketId,
-                        UpdateTicketStatusRequest request,
-                        String userEmail) {
+        LocalDateTime slaDeadline =
+                calculateSlaDeadline(priority);
 
-                Ticket ticket = ticketRepository.findById(ticketId)
-                                .orElseThrow(() -> new RuntimeException("Ticket not found"));
+        SupportTeam supportTeam =
+                routeToSupportTeam(category);
 
-                User user = userRepository.findByEmail(userEmail)
-                                .orElseThrow(() -> new RuntimeException("User not found"));
+        Ticket ticket = Ticket.builder()
+                .title(request.title())
+                .description(request.description())
+                .category(category)
+                .priority(priority)
+                .status(TicketStatus.OPEN)
+                .customer(customer)
+                .supportTeam(supportTeam)
+                .aiConfidence(aiConfidence)
+                .aiClassificationStatus(
+                        aiClassificationStatus)
+                .slaDeadline(slaDeadline)
+                .build();
 
-                if (!ticketAccessService.canAccess(ticket, user)) {
-                        throw new org.springframework.security.access.AccessDeniedException(
-                                        "You do not have permission to update this ticket");
-                }
+        Ticket savedTicket =
+                ticketRepository.save(ticket);
 
-                TicketStatus currentStatus = ticket.getStatus();
-                TicketStatus newStatus = request.status();
+        ticketHistoryService.record(
+                savedTicket,
+                customer,
+                "TICKET_CREATED",
+                null,
+                TicketStatus.OPEN.name());
 
-                if (!ticketWorkflowService.isValidTransition(
-                                currentStatus,
-                                newStatus)) {
+        return toResponse(savedTicket);
+    }
 
-                        throw new IllegalStateException(
-                                        "Invalid ticket status transition: "
-                                                        + currentStatus
-                                                        + " -> "
-                                                        + newStatus);
-                }
+    public TicketResponse updateStatus(
+            Long ticketId,
+            UpdateTicketStatusRequest request,
+            String userEmail) {
 
-                ticket.setStatus(newStatus);
+        Ticket ticket = ticketRepository.findById(ticketId)
+                .orElseThrow(() ->
+                        new RuntimeException("Ticket not found"));
 
-                if (newStatus == TicketStatus.RESOLVED) {
-                        ticket.setResolvedAt(LocalDateTime.now());
-                }
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
 
-                Ticket updatedTicket = ticketRepository.save(ticket);
+        if (!ticketAccessService.canAccess(
+                ticket,
+                user)) {
 
-                ticketHistoryService.record(
-                                updatedTicket,
-                                user,
-                                "STATUS_CHANGED",
-                                currentStatus.name(),
-                                newStatus.name());
-
-                return toResponse(updatedTicket);
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "You do not have permission to update this ticket");
         }
 
-        public TicketResponse getTicket(
-                        Long ticketId,
-                        String userEmail) {
+        TicketStatus currentStatus =
+                ticket.getStatus();
 
-                Ticket ticket = ticketRepository.findById(ticketId)
-                                .orElseThrow(() -> new RuntimeException("Ticket not found"));
+        TicketStatus newStatus =
+                request.status();
 
-                User user = userRepository.findByEmail(userEmail)
-                                .orElseThrow(() -> new RuntimeException("User not found"));
+        if (!ticketWorkflowService.isValidTransition(
+                currentStatus,
+                newStatus)) {
 
-                if (!ticketAccessService.canAccess(ticket, user)) {
-                        throw new org.springframework.security.access.AccessDeniedException(
-                                        "You do not have access to this ticket");
-                }
-
-                return toResponse(ticket);
+            throw new IllegalStateException(
+                    "Invalid ticket status transition: "
+                            + currentStatus
+                            + " -> "
+                            + newStatus);
         }
 
-        public TicketResponse assignAgent(
-                        Long ticketId,
-                        AssignAgentRequest request,
-                        String adminEmail) {
+        ticket.setStatus(newStatus);
 
-                Ticket ticket = ticketRepository.findById(ticketId)
-                                .orElseThrow(() -> new RuntimeException("Ticket not found"));
-
-                User admin = userRepository.findByEmail(adminEmail)
-                                .orElseThrow(() -> new RuntimeException("User not found"));
-
-                User agent = userRepository.findById(request.agentId())
-                                .orElseThrow(() -> new RuntimeException("Agent not found"));
-
-                if (agent.getRole() != com.aryadeep.backend.entity.Role.AGENT) {
-                        throw new IllegalStateException(
-                                        "Selected user is not an AGENT");
-                }
-
-                if (agent.getSupportTeam() == null) {
-                        throw new IllegalStateException(
-                                        "Agent is not assigned to a support team");
-                }
-
-                if (ticket.getSupportTeam() == null) {
-                        throw new IllegalStateException(
-                                        "Ticket is not assigned to a support team");
-                }
-
-                if (!ticket.getSupportTeam().getId()
-                                .equals(agent.getSupportTeam().getId())) {
-
-                        throw new IllegalStateException(
-                                        "Agent does not belong to the ticket's support team");
-                }
-
-                ticket.setAssignedAgent(agent);
-
-                Ticket updatedTicket = ticketRepository.save(ticket);
-
-                ticketHistoryService.record(
-                                updatedTicket,
-                                admin,
-                                "AGENT_ASSIGNED",
-                                null,
-                                agent.getId().toString());
-
-                return toResponse(updatedTicket);
+        if (newStatus == TicketStatus.RESOLVED) {
+            ticket.setResolvedAt(LocalDateTime.now());
         }
 
-        public List<TicketResponse> getTickets(
-                        TicketStatus status,
-                        TicketPriority priority,
-                        TicketCategory category,
-                        Boolean slaBreached,
-                        String userEmail) {
+        Ticket updatedTicket =
+                ticketRepository.save(ticket);
 
-                User user = userRepository.findByEmail(userEmail)
-                                .orElseThrow(() -> new RuntimeException("User not found"));
+        ticketHistoryService.record(
+                updatedTicket,
+                user,
+                "STATUS_CHANGED",
+                currentStatus.name(),
+                newStatus.name());
 
-                var specification = TicketSpecification.hasStatus(status)
-                                .and(TicketSpecification.hasPriority(priority))
-                                .and(TicketSpecification.hasCategory(category))
-                                .and(TicketSpecification.hasSlaBreached(slaBreached));
+        return toResponse(updatedTicket);
+    }
 
-                return ticketRepository
-                                .findAll(specification)
-                                .stream()
-                                .filter(ticket -> ticketAccessService.canAccess(ticket, user))
-                                .map(this::toResponse)
-                                .toList();
+    public TicketResponse getTicket(
+            Long ticketId,
+            String userEmail) {
+
+        Ticket ticket = ticketRepository.findById(ticketId)
+                .orElseThrow(() ->
+                        new RuntimeException("Ticket not found"));
+
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
+
+        if (!ticketAccessService.canAccess(
+                ticket,
+                user)) {
+
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "You do not have access to this ticket");
         }
 
-        public AdminDashboardResponse getAdminDashboard() {
-                return new AdminDashboardResponse(
-                                ticketRepository.count(),
-                                ticketRepository.countByStatus(TicketStatus.OPEN),
-                                ticketRepository.countByStatus(TicketStatus.IN_PROGRESS),
-                                ticketRepository.countByStatus(TicketStatus.RESOLVED),
-                                ticketRepository.countBySlaBreachedTrue(),
-                                ticketRepository.countByAssignedAgentIsNull(),
-                                ticketRepository.countByPriority(TicketPriority.CRITICAL));
+        return toResponse(ticket);
+    }
+
+    public TicketResponse assignAgent(
+            Long ticketId,
+            AssignAgentRequest request,
+            String adminEmail) {
+
+        Ticket ticket = ticketRepository.findById(ticketId)
+                .orElseThrow(() ->
+                        new RuntimeException("Ticket not found"));
+
+        User admin = userRepository.findByEmail(adminEmail)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
+
+        User agent = userRepository.findById(
+                        request.agentId())
+                .orElseThrow(() ->
+                        new RuntimeException("Agent not found"));
+
+        if (agent.getRole()
+                != com.aryadeep.backend.entity.Role.AGENT) {
+
+            throw new IllegalStateException(
+                    "Selected user is not an AGENT");
         }
 
-        private LocalDateTime calculateSlaDeadline(
-                        TicketPriority priority) {
+        if (agent.getSupportTeam() == null) {
 
-                int slaHours = switch (priority) {
-                        case CRITICAL -> 1;
-                        case HIGH -> 4;
-                        case MEDIUM -> 12;
-                        case LOW -> 24;
-                };
-
-                return LocalDateTime.now().plusHours(slaHours);
+            throw new IllegalStateException(
+                    "Agent is not assigned to a support team");
         }
 
-        private SupportTeam routeToSupportTeam(
-                        TicketCategory category) {
+        if (ticket.getSupportTeam() == null) {
 
-                String teamName = switch (category) {
-
-                        case ACCOUNT ->
-                                "ACCOUNT_SUPPORT";
-
-                        case PAYMENT, REFUND ->
-                                "PAYMENT_SUPPORT";
-
-                        case TECHNICAL ->
-                                "TECHNICAL_SUPPORT";
-
-                        case DELIVERY ->
-                                "DELIVERY_SUPPORT";
-
-                        case OTHER ->
-                                "GENERAL_SUPPORT";
-                };
-
-                return supportTeamRepository.findByName(teamName)
-                                .orElseThrow(() -> new RuntimeException(
-                                                "Support team not found: " + teamName));
+            throw new IllegalStateException(
+                    "Ticket is not assigned to a support team");
         }
 
-        private TicketResponse toResponse(Ticket ticket) {
+        if (!ticket.getSupportTeam().getId()
+                .equals(agent.getSupportTeam().getId())) {
 
-                return new TicketResponse(
-                                ticket.getId(),
-                                ticket.getTitle(),
-                                ticket.getDescription(),
-                                ticket.getCategory(),
-                                ticket.getPriority(),
-                                ticket.getStatus(),
-                                ticket.getCustomer().getId(),
-                                ticket.getAssignedAgent() != null
-                                                ? ticket.getAssignedAgent().getId()
-                                                : null,
-                                ticket.getSupportTeam() != null
-                                                ? ticket.getSupportTeam().getId()
-                                                : null,
-                                ticket.getAiConfidence(),
-                                ticket.getAiClassificationStatus(),
-                                ticket.getSlaDeadline(),
-                                ticket.getSlaBreached(),
-                                ticket.getResolvedAt(),
-                                ticket.getCreatedAt(),
-                                ticket.getUpdatedAt());
+            throw new IllegalStateException(
+                    "Agent does not belong to the ticket's support team");
         }
+
+        ticket.setAssignedAgent(agent);
+
+        Ticket updatedTicket =
+                ticketRepository.save(ticket);
+
+        ticketHistoryService.record(
+                updatedTicket,
+                admin,
+                "AGENT_ASSIGNED",
+                null,
+                agent.getId().toString());
+
+        return toResponse(updatedTicket);
+    }
+
+    public Page<TicketResponse> getTickets(
+            TicketStatus status,
+            TicketPriority priority,
+            TicketCategory category,
+            Boolean slaBreached,
+            String keyword,
+            Pageable pageable,
+            String userEmail) {
+
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
+
+        var specification =
+                TicketSpecification.accessibleBy(user)
+                        .and(TicketSpecification.hasStatus(status))
+                        .and(TicketSpecification.hasPriority(priority))
+                        .and(TicketSpecification.hasCategory(category))
+                        .and(TicketSpecification.hasSlaBreached(slaBreached))
+                        .and(TicketSpecification.containsKeyword(keyword));
+
+        return ticketRepository
+                .findAll(specification, pageable)
+                .map(this::toResponse);
+    }
+
+    public AdminDashboardResponse getAdminDashboard() {
+
+        return new AdminDashboardResponse(
+                ticketRepository.count(),
+                ticketRepository.countByStatus(
+                        TicketStatus.OPEN),
+                ticketRepository.countByStatus(
+                        TicketStatus.IN_PROGRESS),
+                ticketRepository.countByStatus(
+                        TicketStatus.RESOLVED),
+                ticketRepository.countBySlaBreachedTrue(),
+                ticketRepository.countByAssignedAgentIsNull(),
+                ticketRepository.countByPriority(
+                        TicketPriority.CRITICAL));
+    }
+
+    private LocalDateTime calculateSlaDeadline(
+            TicketPriority priority) {
+
+        int slaHours = switch (priority) {
+            case CRITICAL -> 1;
+            case HIGH -> 4;
+            case MEDIUM -> 12;
+            case LOW -> 24;
+        };
+
+        return LocalDateTime.now()
+                .plusHours(slaHours);
+    }
+
+    private SupportTeam routeToSupportTeam(
+            TicketCategory category) {
+
+        String teamName = switch (category) {
+
+            case ACCOUNT ->
+                    "ACCOUNT_SUPPORT";
+
+            case PAYMENT, REFUND ->
+                    "PAYMENT_SUPPORT";
+
+            case TECHNICAL ->
+                    "TECHNICAL_SUPPORT";
+
+            case DELIVERY ->
+                    "DELIVERY_SUPPORT";
+
+            case OTHER ->
+                    "GENERAL_SUPPORT";
+        };
+
+        return supportTeamRepository
+                .findByName(teamName)
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Support team not found: "
+                                        + teamName));
+    }
+
+    private TicketResponse toResponse(
+            Ticket ticket) {
+
+        return new TicketResponse(
+                ticket.getId(),
+                ticket.getTitle(),
+                ticket.getDescription(),
+                ticket.getCategory(),
+                ticket.getPriority(),
+                ticket.getStatus(),
+                ticket.getCustomer().getId(),
+                ticket.getAssignedAgent() != null
+                        ? ticket.getAssignedAgent().getId()
+                        : null,
+                ticket.getSupportTeam() != null
+                        ? ticket.getSupportTeam().getId()
+                        : null,
+                ticket.getAiConfidence(),
+                ticket.getAiClassificationStatus(),
+                ticket.getSlaDeadline(),
+                ticket.getSlaBreached(),
+                ticket.getResolvedAt(),
+                ticket.getCreatedAt(),
+                ticket.getUpdatedAt());
+    }
 }

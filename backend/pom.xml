@@ -5,7 +5,8 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <!-- Spring Boot -->
+    <!-- ==================== SPRING BOOT ==================== -->
+
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
@@ -13,7 +14,8 @@
         <relativePath/>
     </parent>
 
-    <!-- Project Information -->
+    <!-- ==================== PROJECT INFORMATION ==================== -->
+
     <groupId>com.aryadeep</groupId>
     <artifactId>smart-ticket-router-backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
@@ -21,19 +23,17 @@
     <name>smart-ticket-router-backend</name>
     <description>Backend service for Smart Ticket Router</description>
 
-    <!-- Java -->
+    <!-- ==================== JAVA ==================== -->
+
     <properties>
         <java.version>21</java.version>
     </properties>
 
+    <!-- ==================== DEPENDENCIES ==================== -->
+
     <dependencies>
 
         <!-- ==================== WEB ==================== -->
-
-        <dependency>
-            <groupId>org.springframework.security</groupId>
-            <artifactId>spring-security-crypto</artifactId>
-        </dependency>
 
         <!-- REST APIs / Spring MVC -->
         <dependency>
@@ -63,6 +63,17 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Flyway -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
+        </dependency>
+
+        <!-- Flyway PostgreSQL support -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
 
         <!-- ==================== SECURITY ==================== -->
 
@@ -70,6 +81,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!-- Spring Security Crypto -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
         </dependency>
 
         <!-- JWT API -->
@@ -96,12 +113,36 @@
         </dependency>
 
 
+        <!-- ==================== OAUTH / EMAIL ==================== -->
+
+        <!-- Google OAuth2 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-client</artifactId>
+        </dependency>
+
+        <!-- Email / SMTP -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
+
         <!-- ==================== LOMBOK ==================== -->
 
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
+        </dependency>
+
+
+        <!-- ==================== API DOCUMENTATION ==================== -->
+
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>3.1.1</version>
         </dependency>
 
 
@@ -134,14 +175,6 @@
             <artifactId>spring-boot-starter-webmvc-test</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-oauth2-client</artifactId>
-</dependency>
-<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-mail</artifactId>
-</dependency>
 
     </dependencies>
 

@@ -2,6 +2,10 @@ package com.aryadeep.backend.controller;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -27,10 +31,18 @@ import com.aryadeep.backend.entity.TicketStatus;
 import com.aryadeep.backend.service.TicketHistoryService;
 import com.aryadeep.backend.service.TicketService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/tickets")
+@Tag(
+        name = "Tickets",
+        description = "Ticket creation, retrieval, filtering, assignment, workflow and history operations")
+@SecurityRequirement(name = "bearerAuth")
 public class TicketController {
 
     private final TicketService ticketService;
@@ -44,6 +56,30 @@ public class TicketController {
         this.ticketHistoryService = ticketHistoryService;
     }
 
+    @Operation(
+            summary = "Create a new ticket",
+            description = "Creates a support ticket for the authenticated customer or admin. "
+                    + "The backend performs AI classification, priority assignment, "
+                    + "support-team routing and SLA calculation."
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "201",
+                    description = "Ticket created successfully"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid ticket data"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "Authentication required"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "User does not have permission to create tickets"
+            )
+    })
     @PostMapping
     @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
     @ResponseStatus(HttpStatus.CREATED)
@@ -56,12 +92,58 @@ public class TicketController {
                 authentication.getName());
     }
 
+    @Operation(
+            summary = "Search and filter tickets",
+            description = "Returns tickets accessible to the authenticated user. "
+                    + "Supports keyword search, status, priority, category, SLA-breach filtering "
+                    + "and database-level pagination."
+    )
     @GetMapping
-    public List<TicketResponse> getTickets(
-            @RequestParam(required = false) TicketStatus status,
-            @RequestParam(required = false) TicketPriority priority,
-            @RequestParam(required = false) TicketCategory category,
-            @RequestParam(required = false) Boolean slaBreached,
+    public Page<TicketResponse> getTickets(
+            @Parameter(
+                    description = "Filter by ticket status",
+                    example = "OPEN"
+            )
+            @RequestParam(required = false)
+            TicketStatus status,
+
+            @Parameter(
+                    description = "Filter by ticket priority",
+                    example = "HIGH"
+            )
+            @RequestParam(required = false)
+            TicketPriority priority,
+
+            @Parameter(
+                    description = "Filter by ticket category",
+                    example = "PAYMENT"
+            )
+            @RequestParam(required = false)
+            TicketCategory category,
+
+            @Parameter(
+                    description = "Filter tickets by SLA breach state",
+                    example = "true"
+            )
+            @RequestParam(required = false)
+            Boolean slaBreached,
+
+            @Parameter(
+                    description = "Search title and description using a keyword",
+                    example = "payment"
+            )
+            @RequestParam(required = false)
+            String keyword,
+
+            @Parameter(
+                    description = "Pagination and sorting options"
+            )
+            @PageableDefault(
+                    size = 20,
+                    sort = "createdAt",
+                    direction = Sort.Direction.DESC)
+            Pageable pageable,
+
             Authentication authentication) {
 
         return ticketService.getTickets(
@@ -69,11 +151,35 @@ public class TicketController {
                 priority,
                 category,
                 slaBreached,
+                keyword,
+                pageable,
                 authentication.getName());
     }
 
+    @Operation(
+            summary = "Get a ticket by ID",
+            description = "Returns a ticket when the authenticated user is authorized to access it."
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "Ticket retrieved successfully"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "User is not allowed to access this ticket"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "Ticket not found"
+            )
+    })
     @GetMapping("/{id}")
     public TicketResponse getTicket(
+            @Parameter(
+                    description = "Unique ticket ID",
+                    example = "143"
+            )
             @PathVariable Long id,
             Authentication authentication) {
 
@@ -82,11 +188,36 @@ public class TicketController {
                 authentication.getName());
     }
 
+    @Operation(
+            summary = "Update ticket status",
+            description = "Changes a ticket's status using the backend state machine. "
+                    + "Only valid workflow transitions are accepted."
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "Ticket status updated successfully"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid status transition or request"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "User does not have permission to update status"
+            )
+    })
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('AGENT', 'ADMIN')")
     public TicketResponse updateStatus(
+            @Parameter(
+                    description = "Unique ticket ID",
+                    example = "143"
+            )
             @PathVariable Long id,
+
             @Valid @RequestBody UpdateTicketStatusRequest request,
+
             Authentication authentication) {
 
         return ticketService.updateStatus(
@@ -95,11 +226,37 @@ public class TicketController {
                 authentication.getName());
     }
 
+    @Operation(
+            summary = "Assign an agent to a ticket",
+            description = "Assigns an agent to a ticket. "
+                    + "The backend verifies that the selected user is an agent "
+                    + "and belongs to the ticket's support team."
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "Agent assigned successfully"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid assignment request"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "Only admins can assign agents"
+            )
+    })
     @PatchMapping("/{id}/assign")
     @PreAuthorize("hasRole('ADMIN')")
     public TicketResponse assignAgent(
+            @Parameter(
+                    description = "Unique ticket ID",
+                    example = "143"
+            )
             @PathVariable Long id,
+
             @Valid @RequestBody AssignAgentRequest request,
+
             Authentication authentication) {
 
         return ticketService.assignAgent(
@@ -108,13 +265,46 @@ public class TicketController {
                 authentication.getName());
     }
 
+    @Operation(
+            summary = "Get ticket history",
+            description = "Returns the audit history of changes made to the ticket."
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "Ticket history retrieved successfully"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "User is not allowed to access the ticket history"
+            )
+    })
     @GetMapping("/{id}/history")
     public List<TicketHistoryResponse> getTicketHistory(
+            @Parameter(
+                    description = "Unique ticket ID",
+                    example = "143"
+            )
             @PathVariable Long id) {
 
         return ticketHistoryService.getTicketHistory(id);
     }
 
+    @Operation(
+            summary = "Get admin ticket dashboard summary",
+            description = "Returns system-wide ticket statistics including "
+                    + "open, in-progress, resolved, breached, unassigned and critical tickets."
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "Dashboard summary retrieved successfully"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "Only admins can access the dashboard"
+            )
+    })
     @GetMapping("/admin/summary")
     @PreAuthorize("hasRole('ADMIN')")
     public AdminDashboardResponse getAdminDashboard() {

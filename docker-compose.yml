@@ -1,0 +1,90 @@
+services:
+
+  # ==================== DATABASE ====================
+
+  postgres:
+    image: postgres:17
+    container_name: smart-ticket-router-postgres
+
+    environment:
+      POSTGRES_DB: smart_ticket_router
+      POSTGRES_USER: smartticket
+      POSTGRES_PASSWORD: smartticket_password
+
+    ports:
+      - "5433:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartticket -d smart_ticket_router"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+
+  # ==================== AI SERVICE ====================
+
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+
+    container_name: smart-ticket-router-ai
+
+    ports:
+      - "8001:8001"
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8001/api/v1/health')"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  # ==================== BACKEND ====================
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+    container_name: smart-ticket-router-backend
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+      ai-service:
+        condition: service_healthy
+
+    ports:
+      - "8080:8080"
+
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/smart_ticket_router
+      SPRING_DATASOURCE_USERNAME: smartticket
+      SPRING_DATASOURCE_PASSWORD: smartticket_password
+
+      AI_SERVICE_URL: http://ai-service:8001
+
+      FRONTEND_URL: http://localhost:5173
+
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+
+      SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME}
+      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD}
+
+
+# ==================== VOLUMES ====================
+
+volumes:
+  postgres_data:

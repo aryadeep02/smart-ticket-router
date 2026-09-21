@@ -1,6 +1,10 @@
 package com.aryadeep.backend.config;
 
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,6 +23,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import jakarta.servlet.http.HttpServletResponse;
+import tools.jackson.databind.ObjectMapper;
 
 @Configuration
 public class SecurityConfig {
@@ -30,31 +35,44 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             JwtAuthenticationFilter jwtAuthenticationFilter,
-            GoogleOAuth2SuccessHandler googleOAuth2SuccessHandler)
+            GoogleOAuth2SuccessHandler googleOAuth2SuccessHandler,
+            ObjectMapper objectMapper)
             throws Exception {
 
+        /*
+         * Handles unauthenticated requests.
+         */
         AuthenticationEntryPoint authenticationEntryPoint =
                 (request, response, authException) -> {
 
-                    response.setStatus(
-                            HttpServletResponse.SC_UNAUTHORIZED);
-
-                    response.setContentType("application/json");
-
-                    response.getWriter().write(
-                            "{\"message\":\"Unauthorized\"}");
+                    writeErrorResponse(
+                            response,
+                            HttpServletResponse.SC_UNAUTHORIZED,
+                            "UNAUTHORIZED",
+                            "Authentication required",
+                            request.getRequestURI(),
+                            objectMapper);
                 };
 
+        /*
+         * Handles authenticated users who do not
+         * have permission to access a resource.
+         */
         AccessDeniedHandler accessDeniedHandler =
                 (request, response, accessDeniedException) -> {
 
-                    response.setStatus(
-                            HttpServletResponse.SC_FORBIDDEN);
+                    String message =
+                            accessDeniedException.getMessage() != null
+                                    ? accessDeniedException.getMessage()
+                                    : "You do not have permission to perform this action";
 
-                    response.setContentType("application/json");
-
-                    response.getWriter().write(
-                            "{\"message\":\"Forbidden\"}");
+                    writeErrorResponse(
+                            response,
+                            HttpServletResponse.SC_FORBIDDEN,
+                            "FORBIDDEN",
+                            message,
+                            request.getRequestURI(),
+                            objectMapper);
                 };
 
         http
@@ -86,6 +104,15 @@ public class SecurityConfig {
                                 "/api/v1/auth/resend-verification",
                                 "/api/v1/auth/forgot-password",
                                 "/api/v1/auth/reset-password")
+                        .permitAll()
+
+                        /*
+                         * Swagger / OpenAPI
+                         */
+                        .requestMatchers(
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**")
                         .permitAll()
 
                         /*
@@ -154,7 +181,7 @@ public class SecurityConfig {
                          */
                         .requestMatchers(
                                 HttpMethod.GET,
-                                "/api/v1/tickets/admin/summary")
+                                "/api/v1/admin/dashboard")
                         .hasRole("ADMIN")
 
                         /*
@@ -171,10 +198,6 @@ public class SecurityConfig {
                         .successHandler(
                                 googleOAuth2SuccessHandler)
 
-                        /*
-                         * Do not let Spring hide the real OAuth
-                         * failure behind /login?error.
-                         */
                         .failureHandler(
                                 (request, response, exception) -> {
 
@@ -193,11 +216,64 @@ public class SecurityConfig {
                  */
                 .httpBasic(AbstractHttpConfigurer::disable);
 
+        /*
+         * Run JWT authentication before Spring's
+         * UsernamePasswordAuthenticationFilter.
+         */
         http.addFilterBefore(
                 jwtAuthenticationFilter,
                 UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    /*
+     * Creates the standard security-layer error response.
+     *
+     * IOException is the checked exception supported by
+     * Spring Security's AuthenticationEntryPoint and
+     * AccessDeniedHandler callbacks.
+     */
+    private void writeErrorResponse(
+            HttpServletResponse response,
+            int status,
+            String error,
+            String message,
+            String path,
+            ObjectMapper objectMapper)
+            throws IOException {
+
+        Map<String, Object> body =
+                new LinkedHashMap<>();
+
+        body.put(
+                "timestamp",
+                LocalDateTime.now());
+
+        body.put(
+                "status",
+                status);
+
+        body.put(
+                "error",
+                error);
+
+        body.put(
+                "message",
+                message);
+
+        body.put(
+                "path",
+                path);
+
+        response.setStatus(status);
+
+        response.setCharacterEncoding("UTF-8");
+
+        response.setContentType("application/json");
+
+        response.getWriter().write(
+                objectMapper.writeValueAsString(body));
     }
 
     @Bean

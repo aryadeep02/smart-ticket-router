@@ -1,5 +1,6 @@
 package com.aryadeep.backend.exception;
 
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -10,30 +11,39 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(EmailAlreadyExistsException.class)
     public ResponseEntity<Map<String, Object>> handleEmailAlreadyExists(
-            EmailAlreadyExistsException exception) {
+            EmailAlreadyExistsException exception,
+            HttpServletRequest request) {
 
         return buildResponse(
                 HttpStatus.CONFLICT,
-                exception.getMessage());
+                "EMAIL_ALREADY_EXISTS",
+                exception.getMessage(),
+                request);
     }
 
     @ExceptionHandler(InvalidCredentialsException.class)
     public ResponseEntity<Map<String, Object>> handleInvalidCredentials(
-            InvalidCredentialsException exception) {
+            InvalidCredentialsException exception,
+            HttpServletRequest request) {
 
         return buildResponse(
                 HttpStatus.UNAUTHORIZED,
-                exception.getMessage());
+                "INVALID_CREDENTIALS",
+                exception.getMessage(),
+                request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidationErrors(
-            MethodArgumentNotValidException exception) {
+            MethodArgumentNotValidException exception,
+            HttpServletRequest request) {
 
         Map<String, String> errors = new LinkedHashMap<>();
 
@@ -46,9 +56,12 @@ public class GlobalExceptionHandler {
                         )
                 );
 
-        Map<String, Object> response = new LinkedHashMap<>();
+        Map<String, Object> response = baseResponse(
+                HttpStatus.BAD_REQUEST,
+                "VALIDATION_ERROR",
+                "Validation failed",
+                request);
 
-        response.put("message", "Validation failed");
         response.put("errors", errors);
 
         return ResponseEntity
@@ -58,32 +71,59 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalState(
-            IllegalStateException exception) {
+            IllegalStateException exception,
+            HttpServletRequest request) {
 
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
-                exception.getMessage());
+                "ILLEGAL_STATE",
+                exception.getMessage(),
+                request);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Map<String, Object>> handleAccessDenied(
-            AccessDeniedException exception) {
+            AccessDeniedException exception,
+            HttpServletRequest request) {
 
         return buildResponse(
                 HttpStatus.FORBIDDEN,
-                "Forbidden");
+                "FORBIDDEN",
+                exception.getMessage() != null
+                        ? exception.getMessage()
+                        : "You do not have permission to perform this action",
+                request);
     }
 
     private ResponseEntity<Map<String, Object>> buildResponse(
             HttpStatus status,
-            String message) {
-
-        Map<String, Object> response = new LinkedHashMap<>();
-
-        response.put("message", message);
+            String error,
+            String message,
+            HttpServletRequest request) {
 
         return ResponseEntity
                 .status(status)
-                .body(response);
+                .body(baseResponse(
+                        status,
+                        error,
+                        message,
+                        request));
+    }
+
+    private Map<String, Object> baseResponse(
+            HttpStatus status,
+            String error,
+            String message,
+            HttpServletRequest request) {
+
+        Map<String, Object> response = new LinkedHashMap<>();
+
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", status.value());
+        response.put("error", error);
+        response.put("message", message);
+        response.put("path", request.getRequestURI());
+
+        return response;
     }
 }

@@ -15,10 +15,20 @@ import com.aryadeep.backend.dto.CreateUserRequest;
 import com.aryadeep.backend.entity.User;
 import com.aryadeep.backend.service.UserService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/admin/users")
+@Tag(
+        name = "Admin Users",
+        description = "Administrative user management operations"
+)
+@SecurityRequirement(name = "bearerAuth")
 public class AdminUserController {
 
     private final UserService userService;
@@ -27,6 +37,33 @@ public class AdminUserController {
         this.userService = userService;
     }
 
+    @Operation(
+            summary = "Create a user",
+            description = "Creates a new customer or agent account. "
+                    + "Agents must be assigned to a support team."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "201",
+                    description = "User created successfully"
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid user data or missing support team"
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Authentication required"
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "Only admins can create users"
+            ),
+            @ApiResponse(
+                    responseCode = "409",
+                    description = "Email is already registered"
+            )
+    })
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public AdminUserResponse createUser(
@@ -52,6 +89,24 @@ public class AdminUserController {
                         : null);
     }
 
+    @Operation(
+            summary = "Get all users",
+            description = "Returns all registered users for administrative management."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Users retrieved successfully"
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Authentication required"
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "Only admins can access users"
+            )
+    })
     @GetMapping
     public List<AdminUserResponse> getAllUsers() {
 

@@ -40,6 +40,7 @@ class PasswordResetServiceTest {
     private PasswordResetService passwordResetService;
 
     @BeforeEach
+    @SuppressWarnings("unused")
     void setUp() {
 
         passwordEncoder = new BCryptPasswordEncoder();
@@ -307,24 +308,7 @@ class PasswordResetServiceTest {
                 .build();
     }
 
-    private String extractResetToken(User user) {
-
-        /*
-         * The service sends the raw token through EmailService.
-         * Capture it from the Mockito invocation.
-         */
-        ArgumentCaptor<String> tokenCaptor =
-                ArgumentCaptor.forClass(String.class);
-
-        verify(emailService).sendPasswordResetEmail(
-                eq(user.getEmail()),
-                eq(user.getName()),
-                tokenCaptor.capture()
-        );
-
-        return tokenCaptor.getValue();
-    }
-
+   
     private String hashToken(String token) {
 
         try {
