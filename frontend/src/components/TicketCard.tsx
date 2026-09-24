@@ -1,38 +1,46 @@
 import { useNavigate } from "react-router-dom";
-
 import { useAuth } from "../context/AuthContext";
-
 import type { Ticket } from "../types/ticket";
 
 interface TicketCardProps {
   ticket: Ticket;
 }
 
-export default function TicketCard({
-  ticket,
-}: TicketCardProps) {
+export default function TicketCard({ ticket }: TicketCardProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  const priorityClass = ticket.priority.toLowerCase();
+  const statusClass = ticket.status.toLowerCase().replaceAll("_", "-");
+
   return (
-    <div
+    <article
       className="ticket-card"
       onClick={() => navigate(`/tickets/${ticket.id}`)}
       role="button"
       tabIndex={0}
       onKeyDown={(event) => {
-        if (event.key === "Enter") {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
           navigate(`/tickets/${ticket.id}`);
         }
       }}
     >
+      <div className="ticket-card-top">
+        <div className="ticket-id">
+          TICKET #{ticket.id}
+        </div>
+
+        <span className={`priority-badge priority-${priorityClass}`}>
+          {ticket.priority}
+        </span>
+      </div>
+
       <div className="ticket-card-header">
         <h3>{ticket.title}</h3>
 
-        <span
-          className={`priority-badge priority-${ticket.priority.toLowerCase()}`}
-        >
-          {ticket.priority}
+        <span className={`ticket-status status-${statusClass}`}>
+          {ticket.status.replaceAll("_", " ")}
         </span>
       </div>
 
@@ -40,35 +48,37 @@ export default function TicketCard({
         {ticket.description}
       </p>
 
-      <div className="ticket-meta">
-        <span>{ticket.category}</span>
-
-        <span>•</span>
-
-        <span>{ticket.status}</span>
+      <div className="ticket-card-footer">
+        <div className="ticket-meta">
+          <span>{ticket.category}</span>
+          <span className="meta-dot">•</span>
+          <span>
+            {ticket.supportTeamId
+              ? `Team #${ticket.supportTeamId}`
+              : "Unassigned"}
+          </span>
+        </div>
 
         {ticket.slaBreached && (
-          <>
-            <span>•</span>
-
-            <span className="sla-breached">
-              SLA BREACHED
-            </span>
-          </>
+          <span className="sla-breached">
+            SLA BREACHED
+          </span>
         )}
 
         {user?.role === "AGENT" && (
-          <>
-            <span>•</span>
-
-            <span>
-              {ticket.assignedAgentId === user.userId
-                ? "ASSIGNED TO YOU"
-                : "TEAM TICKET"}
-            </span>
-          </>
+          <span
+            className={
+              ticket.assignedAgentId === user.userId
+                ? "assignment-badge assigned"
+                : "assignment-badge"
+            }
+          >
+            {ticket.assignedAgentId === user.userId
+              ? "Assigned to you"
+              : "Team ticket"}
+          </span>
         )}
       </div>
-    </div>
+    </article>
   );
 }

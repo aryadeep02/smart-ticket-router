@@ -1,163 +1,164 @@
 import { useState } from "react";
-import type { FormEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
-  const { login } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const { login } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
-  const [error, setError] = useState(() => {
-    const oauthError = searchParams.get("error");
-
-    if (oauthError === "google-login-failed") {
-      return "Google login failed. Please try again.";
-    }
-
-    return "";
-  });
-
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = async (
-    event: FormEvent<HTMLFormElement>
-  ) => {
+  const handleSubmit = async (event: {
+    preventDefault: () => void;
+  }) => {
     event.preventDefault();
 
-    setError("");
-
-    if (!email.trim() || !password) {
-      setError("Email and password are required.");
+    if (loading) {
       return;
     }
 
-    setLoading(true);
-
     try {
-      await login({
-        email: email.trim(),
-        password,
-      });
+      setLoading(true);
+      setError("");
 
+      await login({ email: email.trim(), password });
       navigate("/dashboard");
-    } catch (error: any) {
-      setError(
-        error.response?.data?.message ||
-          "Invalid email or password"
-      );
+    } catch (err) {
+      console.error("Login failed:", err);
+      setError("Invalid email or password.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleLogin = () => {
-    window.location.href =
-      "http://localhost:8080/oauth2/authorization/google";
-  };
-
   return (
     <main className="auth-page">
-      <div className="auth-card">
-        <div className="auth-header">
-          <h1>Smart Ticket Router</h1>
+      <div className="auth-glow auth-glow-one" />
+      <div className="auth-glow auth-glow-two" />
 
-          <p>
-            Sign in to manage your support tickets.
-          </p>
+      <section className="auth-shell">
+        <div className="auth-brand">
+          <div className="auth-brand-mark">ST</div>
+          <span>Smart Ticket</span>
         </div>
 
-        <form
-          className="auth-form"
-          onSubmit={handleSubmit}
-        >
-          <div className="form-field">
-            <label htmlFor="email">
-              Email
-            </label>
+        <div className="auth-card">
+          <div className="auth-header">
+            <span className="eyebrow">Welcome back</span>
 
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(event) =>
-                setEmail(event.target.value)
-              }
-              placeholder="you@example.com"
-              autoComplete="email"
-              required
-            />
-          </div>
+            <h1>Sign in</h1>
 
-          <div className="form-field">
-            <label htmlFor="password">
-              Password
-            </label>
-
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(event) =>
-                setPassword(event.target.value)
-              }
-              placeholder="Enter your password"
-              autoComplete="current-password"
-              required
-            />
-          </div>
-
-          <div className="forgot-password-link">
-            <button
-              type="button"
-              className="text-button"
-              onClick={() => navigate("/forgot-password")}
-            >
-              Forgot Password?
-            </button>
+            <p>
+              Access your support workspace and manage your tickets.
+            </p>
           </div>
 
           {error && (
-            <div className="form-error">
-              {error}
+            <div className="auth-error" role="alert">
+              <span aria-hidden="true">!</span>
+              <p>{error}</p>
             </div>
           )}
 
-          <button
-            className="primary-button auth-submit"
-            type="submit"
-            disabled={loading}
-          >
-            {loading
-              ? "Signing in..."
-              : "Sign In"}
-          </button>
-        </form>
+          <form onSubmit={handleSubmit} className="auth-form">
+            <label htmlFor="email">
+              Email
 
-        <div className="auth-divider">
-          <span>OR</span>
+              <input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                autoComplete="email"
+                required
+              />
+            </label>
+
+            <label htmlFor="password">
+              <div className="password-label">
+                <span>Password</span>
+
+                <Link to="/forgot-password">
+                  Forgot password?
+                </Link>
+              </div>
+
+              <div className="password-input">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="current-password"
+                  required
+                />
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowPassword((current) => !current)
+                  }
+                  aria-label={
+                    showPassword
+                      ? "Hide password"
+                      : "Show password"
+                  }
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
+            </label>
+
+            <button
+              type="submit"
+              className="auth-submit"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <span
+                    className="button-spinner"
+                    aria-hidden="true"
+                  />
+                  Signing in...
+                </>
+              ) : (
+                "Sign in"
+              )}
+            </button>
+          </form>
+
+          <div className="auth-divider">
+            <span>or</span>
+          </div>
+
+          <a
+            href="http://localhost:8080/oauth2/authorization/google"
+            className="google-button"
+          >
+            <span className="google-icon" aria-hidden="true">
+              G
+            </span>
+
+            Continue with Google
+          </a>
+
+          <p className="auth-switch">
+            Don't have an account?{" "}
+            <Link to="/register">Create one</Link>
+          </p>
         </div>
 
-        <button
-          className="secondary-button"
-          type="button"
-          onClick={handleGoogleLogin}
-        >
-          Continue with Google
-        </button>
-
-        <button
-          className="secondary-button"
-          type="button"
-          onClick={() => navigate("/register")}
-        >
-          Create a new account
-        </button>
-      </div>
+        <p className="auth-footer">
+          Smart Ticket Router · Secure support management
+        </p>
+      </section>
     </main>
   );
 }

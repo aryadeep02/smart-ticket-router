@@ -23,12 +23,12 @@ export default function ForgotPassword() {
 
             setMessage(
                 response.data.message ||
-                "If an account exists for this email, a password reset link has been sent."
+                    "If an account exists for this email, a password reset link has been sent."
             );
         } catch (err: any) {
             setError(
                 err?.response?.data?.message ||
-                "Unable to process the password reset request."
+                    "Unable to process the password reset request."
             );
         } finally {
             setLoading(false);
@@ -39,18 +39,24 @@ export default function ForgotPassword() {
         <div className="auth-page">
             <div className="auth-card">
 
-                <h2>Forgot Password?</h2>
+                <div className="auth-icon">
+                    🔐
+                </div>
 
-                <p>
-                    Enter your email address and we'll send you
-                    a password reset link.
-                </p>
+                <div className="auth-heading">
+                    <h2>Forgot your password?</h2>
+
+                    <p>
+                        No worries. Enter your email and we'll
+                        send you a secure link to reset it.
+                    </p>
+                </div>
 
                 <form onSubmit={handleSubmit}>
 
-                    <div className="form-group">
+                <div className="form-field">
                         <label htmlFor="email">
-                            Email
+                            Email address
                         </label>
 
                         <input
@@ -61,40 +67,45 @@ export default function ForgotPassword() {
                                 setEmail(event.target.value)
                             }
                             placeholder="you@example.com"
+                            autoComplete="email"
                             required
                         />
                     </div>
 
                     {message && (
-                        <p className="success-message">
+                        <div className="success-message">
                             {message}
-                        </p>
+                        </div>
                     )}
 
                     {error && (
-                        <p className="error-message">
+                        <div className="error-message">
                             {error}
-                        </p>
+                        </div>
                     )}
 
                     <button
                         type="submit"
-                        className="auth-button"
+                       className="auth-submit primary-button"
                         disabled={loading}
                     >
-                        {loading
-                            ? "Sending..."
-                            : "Send Reset Link"}
+                        {loading ? (
+                            <>
+                                <span className="button-spinner" />
+                                Sending link...
+                            </>
+                        ) : (
+                            "Send Reset Link"
+                        )}
                     </button>
-
                 </form>
 
-                <p>
-                    Remember your password?{" "}
+                <div className="auth-footer">
+                    <span>Remember your password?</span>{" "}
                     <Link to="/login">
                         Back to Login
                     </Link>
-                </p>
+                </div>
 
             </div>
         </div>

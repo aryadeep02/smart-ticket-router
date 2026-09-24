@@ -1,5 +1,4 @@
-import { useNavigate } from "react-router-dom";
-
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function Navbar() {
@@ -12,70 +11,60 @@ export default function Navbar() {
   };
 
   return (
-    <header className="navbar">
-      <div
-        className="navbar-brand"
-        onClick={() => navigate("/dashboard")}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            navigate("/dashboard");
-          }
-        }}
-      >
-        Smart Ticket Router
-      </div>
-
-      <nav className="navbar-actions">
-        <button
-          className="nav-button"
-          onClick={() => navigate("/dashboard")}
-        >
-          Dashboard
-        </button>
-
-        {user?.role === "CUSTOMER" && (
-          <button
-            className="nav-button"
-            onClick={() => navigate("/tickets/create")}
-          >
-            Create Ticket
-          </button>
-        )}
-
-        {user?.role === "ADMIN" && (
-          <>
-            <button
-              className="nav-button"
-              onClick={() => navigate("/admin/users")}
-            >
-              Users
-            </button>
-
-            <button
-              className="nav-button"
-              onClick={() => navigate("/admin/teams")}
-            >
-              Teams
-            </button>
-          </>
-        )}
-
-        <span className="navbar-user">
-          {user?.name}{" "}
-          <span className="navbar-role">
-            ({user?.role})
+    <header className="app-navbar">
+      <div className="navbar-inner">
+        <Link to="/dashboard" className="brand">
+          <span className="brand-mark">
+            ST
           </span>
-        </span>
 
-        <button
-          className="logout-button"
-          onClick={handleLogout}
-        >
-          Logout
-        </button>
-      </nav>
+          <span className="brand-text">
+            Smart Ticket
+          </span>
+        </Link>
+
+        <nav className="navbar-links">
+          <Link to="/dashboard">Dashboard</Link>
+
+          {user?.role === "ADMIN" && (
+            <>
+              <Link to="/admin/users">Users</Link>
+              <Link to="/admin/teams">Teams</Link>
+            </>
+          )}
+        </nav>
+
+        <div className="navbar-actions">
+          <Link
+            to="/tickets/create"
+            className="create-ticket-button"
+          >
+            <span>+</span>
+            New ticket
+          </Link>
+
+          <div className="user-menu">
+            <div className="user-avatar">
+              {(user?.name?.charAt(0) || "U").toUpperCase()}
+            </div>
+
+            <div className="user-info">
+              <strong>{user?.name || "User"}</strong>
+              <span>{user?.role || "CUSTOMER"}</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="logout-button"
+            onClick={handleLogout}
+            aria-label="Logout"
+            title="Logout"
+          >
+            ↗
+          </button>
+        </div>
+      </div>
     </header>
   );
 }

@@ -1,9 +1,6 @@
 import { useState } from "react";
-import type { FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
-
+import { Link, useNavigate } from "react-router-dom";
 import api from "../services/api";
-
 
 export default function Register() {
   const navigate = useNavigate();
@@ -11,43 +8,35 @@ export default function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
-  const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = async (
-    event: FormEvent<HTMLFormElement>
-  ) => {
+  const handleSubmit = async (event: {
+    preventDefault: () => void;
+  }) => {
     event.preventDefault();
 
-    const trimmedName = name.trim();
-    const trimmedEmail = email.trim();
-
-    if (!trimmedName || !trimmedEmail || !password) {
-      setError("Name, email and password are required.");
+    if (loading) {
       return;
     }
-
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
-      return;
-    }
-
-    setError("");
-    setLoading(true);
 
     try {
+      setLoading(true);
+      setError("");
+
       await api.post("/auth/register", {
-        name: trimmedName,
-        email: trimmedEmail,
+        name: name.trim(),
+        email: email.trim(),
         password,
       });
 
       navigate("/login");
-    } catch (error: any) {
+    } catch (err) {
+      console.error("Registration failed:", err);
+
       setError(
-        error.response?.data?.message ||
-          "Failed to create account"
+        "Unable to create your account. Please check your details and try again."
       );
     } finally {
       setLoading(false);
@@ -56,99 +45,142 @@ export default function Register() {
 
   return (
     <main className="auth-page">
-      <div className="auth-card">
-        <div className="auth-header">
-          <h1>Create Account</h1>
+      <div className="auth-glow auth-glow-one" />
+      <div className="auth-glow auth-glow-two" />
 
-          <p>
-            Create your customer account to submit and
-            track support tickets.
-          </p>
+      <section className="auth-shell">
+        <div className="auth-brand">
+          <div className="auth-brand-mark">ST</div>
+          <span>Smart Ticket</span>
         </div>
 
-        <form
-          className="auth-form"
-          onSubmit={handleSubmit}
-        >
-          <div className="form-field">
-            <label htmlFor="name">
-              Name
-            </label>
+        <div className="auth-card">
+          <div className="auth-header">
+            <span className="eyebrow">Get started</span>
 
-            <input
-              id="name"
-              type="text"
-              value={name}
-              onChange={(event) =>
-                setName(event.target.value)
-              }
-              placeholder="Your name"
-              autoComplete="name"
-              required
-            />
-          </div>
+            <h1>Create account</h1>
 
-          <div className="form-field">
-            <label htmlFor="email">
-              Email
-            </label>
-
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(event) =>
-                setEmail(event.target.value)
-              }
-              placeholder="you@example.com"
-              autoComplete="email"
-              required
-            />
-          </div>
-
-          <div className="form-field">
-            <label htmlFor="password">
-              Password
-            </label>
-
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(event) =>
-                setPassword(event.target.value)
-              }
-              placeholder="Minimum 8 characters"
-              autoComplete="new-password"
-              required
-            />
+            <p>
+              Create your account and start managing support
+              tickets in one place.
+            </p>
           </div>
 
           {error && (
-            <div className="form-error">
-              {error}
+            <div className="auth-error" role="alert">
+              <span aria-hidden="true">!</span>
+              <p>{error}</p>
             </div>
           )}
 
-          <button
-            className="primary-button auth-submit"
-            type="submit"
-            disabled={loading}
-          >
-            {loading
-              ? "Creating account..."
-              : "Create Account"}
-          </button>
-        </form>
+          <form onSubmit={handleSubmit} className="auth-form">
+            <label htmlFor="name">
+              Full name
 
-        <button
-          className="secondary-button"
-          type="button"
-          onClick={() => navigate("/login")}
-        >
-          Already have an account? Sign in
-        </button>
-      </div>
+              <input
+                id="name"
+                type="text"
+                placeholder="John Doe"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                autoComplete="name"
+                required
+              />
+            </label>
+
+            <label htmlFor="email">
+              Email
+
+              <input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                autoComplete="email"
+                required
+              />
+            </label>
+
+            <label htmlFor="password">
+              Password
+
+              <div className="password-input">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Create a strong password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="new-password"
+                  minLength={8}
+                  required
+                />
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowPassword((current) => !current)
+                  }
+                  aria-label={
+                    showPassword
+                      ? "Hide password"
+                      : "Show password"
+                  }
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
+            </label>
+
+            <p className="password-hint">
+              Use at least 8 characters.
+            </p>
+
+            <button
+              type="submit"
+              className="auth-submit"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <span
+                    className="button-spinner"
+                    aria-hidden="true"
+                  />
+                  Creating account...
+                </>
+              ) : (
+                "Create account"
+              )}
+            </button>
+          </form>
+
+          <div className="auth-divider">
+            <span>or</span>
+          </div>
+
+          <a
+            href="http://localhost:8080/oauth2/authorization/google"
+            className="google-button"
+          >
+            <span className="google-icon" aria-hidden="true">
+              G
+            </span>
+
+            Continue with Google
+          </a>
+
+          <p className="auth-switch">
+            Already have an account?{" "}
+            <Link to="/login">Sign in</Link>
+          </p>
+        </div>
+
+        <p className="auth-footer">
+          Smart Ticket Router · Secure support management
+        </p>
+      </section>
     </main>
   );
 }

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
 import Navbar from "../components/Navbar";
@@ -14,18 +13,25 @@ export default function CreateTicket() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubmit = async (
-    event: FormEvent<HTMLFormElement>
-  ) => {
+  const handleSubmit = async (event: {
+    preventDefault: () => void;
+  }) => {
     event.preventDefault();
+
+    if (loading) {
+      return;
+    }
 
     const trimmedTitle = title.trim();
     const trimmedDescription = description.trim();
 
     if (!trimmedTitle || !trimmedDescription) {
-      setError(
-        "Title and description cannot be empty."
-      );
+      setError("Title and description cannot be empty.");
+      return;
+    }
+
+    if (trimmedDescription.length > 5000) {
+      setError("Description cannot exceed 5000 characters.");
       return;
     }
 
@@ -39,115 +45,241 @@ export default function CreateTicket() {
       });
 
       navigate(`/tickets/${ticket.id}`);
-    } catch (error: any) {
-      setError(
-        error.response?.data?.message ||
-          "Failed to create ticket"
-      );
+    } catch (error: unknown) {
+      console.error("Failed to create ticket:", error);
+
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error
+      ) {
+        const response = (
+          error as {
+            response?: {
+              data?: {
+                message?: string;
+              };
+            };
+          }
+        ).response;
+
+        setError(
+          response?.data?.message ||
+            "Failed to create ticket. Please try again."
+        );
+      } else {
+        setError("Failed to create ticket. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div>
+    <>
       <Navbar />
 
-      <main className="page-container">
+      <main className="create-ticket-page">
         <button
-          className="secondary-button"
+          className="create-back-button"
           type="button"
           onClick={() => navigate("/dashboard")}
         >
-          ← Back to Dashboard
+          ← Dashboard
         </button>
 
-        <div className="form-card">
-          <div className="page-header">
-            <h1>Create Ticket</h1>
+        <div className="create-ticket-header">
+          <div>
+            <span className="eyebrow">Support request</span>
+
+            <h1>Create a ticket</h1>
 
             <p>
-              Describe your issue and our intelligent
-              router will automatically categorize and
-              prioritize it.
+              Tell us what happened. Our AI router will
+              automatically classify your issue and send it
+              to the right support team.
             </p>
           </div>
+        </div>
 
-          <form
-            className="ticket-form"
-            onSubmit={handleSubmit}
-          >
-            <div className="form-field">
-              <label htmlFor="title">
-                Title
-              </label>
-
-              <input
-                id="title"
-                type="text"
-                value={title}
-                onChange={(event) =>
-                  setTitle(event.target.value)
-                }
-                placeholder="Briefly describe your issue"
-                maxLength={255}
-                required
-              />
-            </div>
-
-            <div className="form-field">
-              <label htmlFor="description">
-                Description
-              </label>
-
-              <textarea
-                id="description"
-                value={description}
-                onChange={(event) =>
-                  setDescription(event.target.value)
-                }
-                placeholder="Describe your issue in detail..."
-                rows={10}
-                required
-              />
-
-              <small>
-                {description.length} / 5000 characters
-              </small>
-            </div>
-
-            {error && (
-              <div className="form-error">
-                {error}
+        <div className="create-ticket-layout">
+          <section className="create-ticket-card">
+            <div className="create-card-heading">
+              <div className="create-card-icon">
+                +
               </div>
-            )}
 
-            <div className="form-actions">
-              <button
-                className="secondary-button"
-                type="button"
-                onClick={() => navigate("/dashboard")}
-              >
-                Cancel
-              </button>
-
-              <button
-                className="primary-button"
-                type="submit"
-                disabled={
-                  loading ||
-                  !title.trim() ||
-                  !description.trim()
-                }
-              >
-                {loading
-                  ? "Creating..."
-                  : "Create Ticket"}
-              </button>
+              <div>
+                <h2>Describe your issue</h2>
+                <p>
+                  Give us enough detail so the support team
+                  can help you quickly.
+                </p>
+              </div>
             </div>
-          </form>
+
+            <form
+              className="create-ticket-form"
+              onSubmit={handleSubmit}
+            >
+              <div className="create-field">
+                <div className="field-label-row">
+                  <label htmlFor="title">
+                    Issue title
+                  </label>
+
+                  <span>
+                    {title.length}/255
+                  </span>
+                </div>
+
+                <input
+                  id="title"
+                  type="text"
+                  value={title}
+                  onChange={(event) =>
+                    setTitle(event.target.value)
+                  }
+                  placeholder="e.g. Payment failed but money was deducted"
+                  maxLength={255}
+                  required
+                />
+              </div>
+
+              <div className="create-field">
+                <div className="field-label-row">
+                  <label htmlFor="description">
+                    Description
+                  </label>
+
+                  <span>
+                    {description.length}/5000
+                  </span>
+                </div>
+
+                <textarea
+                  id="description"
+                  value={description}
+                  onChange={(event) =>
+                    setDescription(event.target.value)
+                  }
+                  placeholder={
+                    "Explain what happened, what you expected, and any relevant details..."
+                  }
+                  rows={9}
+                  maxLength={5000}
+                  required
+                />
+              </div>
+
+              {error && (
+                <div className="create-form-error" role="alert">
+                  <span>!</span>
+                  <p>{error}</p>
+                </div>
+              )}
+
+              <div className="create-form-actions">
+                <button
+                  className="create-cancel-button"
+                  type="button"
+                  onClick={() => navigate("/dashboard")}
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  className="create-submit-button"
+                  type="submit"
+                  disabled={
+                    loading ||
+                    !title.trim() ||
+                    !description.trim()
+                  }
+                >
+                  {loading ? (
+                    <>
+                      <span className="create-spinner" />
+                      Creating ticket...
+                    </>
+                  ) : (
+                    <>
+                      Create ticket
+                      <span>→</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <aside className="routing-info-card">
+            <div className="routing-icon">
+              ✦
+            </div>
+
+            <span className="eyebrow">
+              Smart routing
+            </span>
+
+            <h2>
+              Let the system do the routing.
+            </h2>
+
+            <p>
+              You don't need to choose a category or priority.
+              Smart Ticket Router analyzes your request
+              automatically.
+            </p>
+
+            <div className="routing-steps">
+              <div className="routing-step">
+                <span>01</span>
+
+                <div>
+                  <strong>Understand</strong>
+                  <p>
+                    Your title and description are analyzed.
+                  </p>
+                </div>
+              </div>
+
+              <div className="routing-step">
+                <span>02</span>
+
+                <div>
+                  <strong>Classify</strong>
+                  <p>
+                    AI predicts the category and priority.
+                  </p>
+                </div>
+              </div>
+
+              <div className="routing-step">
+                <span>03</span>
+
+                <div>
+                  <strong>Route</strong>
+                  <p>
+                    Your ticket is sent to the appropriate
+                    support team.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="routing-note">
+              <span>✓</span>
+              <p>
+                If AI classification is unavailable, the
+                system automatically falls back to a safe
+                default.
+              </p>
+            </div>
+          </aside>
         </div>
       </main>
-    </div>
+    </>
   );
 }
